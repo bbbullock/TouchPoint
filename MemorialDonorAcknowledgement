@@ -1,0 +1,214 @@
+#####################################################################
+#### MEMORIAL ACKNOWLEDGEMENT LETTERS — FULLY INDESTRUCTIBLE VERSION 3.2
+#####################################################################
+
+# Author:  Brian Bullock
+# Email:   bbbullock@mac.com
+# Church:  Immanuel Lutheran Church, St. Paul
+#
+# Version: 3.2
+#
+# Description:
+# This script generates a CSV of donation records that include the phrase
+# "in memory of" in the Contribution Description field. The output is filtered
+# by Batch Date (DepositDate from BundleList) and includes both the Batch Date
+# and Contribution Date in the report.
+#
+# The script also remembers the last-used date range via a stored JSON config
+# and reuses it as the default for future runs.
+#
+# Changelog:
+# - v3.2: Clears prior CSV output and totals at the start of each run.
+# - v3.1: Remembers last-used date range via JSON storage.
+# - v3.0: Updated to use Batch Date (DepositDate) instead of FundId.
+#         Included both Batch and Contribution Dates in CSV.
+
+import datetime
+import csv
+import io
+import base64
+import json
+
+# Inputs
+CONFIG_NAME = "MemorialAckLastRange"
+last_range = model.TextContent(CONFIG_NAME)
+if last_range:
+    try:
+        last_range = json.loads(last_range)
+    except Exception:
+        last_range = {}
+else:
+    last_range = {}
+
+sDate = model.Data.sDate or last_range.get("sDate")
+eDate = model.Data.eDate or last_range.get("eDate")
+
+if model.Data.sDate and model.Data.eDate:
+    model.WriteContentText(CONFIG_NAME, json.dumps({
+        "sDate": model.Data.sDate,
+        "eDate": model.Data.eDate
+    }))
+
+addNote = model.Data.addNote
+
+# Note configuration
+ownerId = model.UserPeopleId
+roleId = 8
+keywordIdList = [37]
+
+# Prepare form fields
+optionsDate = 'value="{}"'.format(sDate) if sDate else ''
+optioneDate = 'value="{}"'.format(eDate) if eDate else ''
+addNoteCheckbox = '''
+    <input type="checkbox" id="addNote" name="addNote" value="1" {}>
+    <label for="addNote"> Add to Notes for Each Individual</label>
+'''.format("checked" if addNote == '1' else "")
+
+formHTML = '''
+<p><strong>This function generates acknowledgement letters for any gift with "in memory of" in the Contribution Description.</strong></p>
+<p>Select a date range (based on Batch Date):</p>
+<form method="GET">
+    <p>
+        <label for="sDate">Start:</label>
+        <input type="date" id="sDate" name="sDate" required {0}>
+        <label for="eDate">End:</label>
+        <input type="date" id="eDate" name="eDate" required {1}>
+    </p>
+    <p>
+        {2}
+    </p>
+    <p>
+        <input type="submit" value="Submit">
+    </p>
+</form>
+<hr>
+'''.format(optionsDate, optioneDate, addNoteCheckbox)
+
+Report = formHTML
+
+# MAIN LOGIC
+if model.Data.sDate and model.Data.eDate:
+    # Clear CSV and totals
+    csv_rows = [["InformalName", "InformalSalutation", "Address", "Address2", "City", "State", "Zip", "Amount", "Contribution Date", "Batch Date", "Description"]]
+    totalAmount = 0.0
+
+    sql = '''
+    SELECT c.ContributionDate, c.ContributionAmount, c.ContributionDesc,
+                      b.DepositDate,
+           p.PeopleId, p.FamilyId, p.SpouseId, p.FirstName, p.LastName,
+           p.ContributionOptionsId, p.NickName,
+           p.TitleCode, p.SuffixCode,
+           p.PrimaryAddress, p.PrimaryAddress2, p.PrimaryCity, p.PrimaryState, p.PrimaryZip
+    FROM Contribution c
+    JOIN BundleDetail bd ON bd.ContributionId = c.ContributionId
+    JOIN BundleHeader b ON b.BundleHeaderId = bd.BundleHeaderId
+    JOIN People p ON p.PeopleId = c.PeopleId
+    WHERE c.ContributionDesc LIKE '%in memory of%'
+      AND b.DepositDate BETWEEN '{0}' AND '{1}'
+    ORDER BY b.DepositDate, c.ContributionDate
+    '''.format(sDate, eDate)
+
+    donors = q.QuerySql(sql)
+
+    spouse_ids = [str(d.SpouseId) for d in donors if d.SpouseId]
+    spouse_lookup = {}
+    if spouse_ids:
+        spouse_sql = '''
+        SELECT PeopleId, FirstName, LastName, NickName
+        FROM People
+        WHERE PeopleId IN ({})
+        '''.format(",".join(spouse_ids))
+        spouses = q.QuerySql(spouse_sql)
+        spouse_lookup = {s.PeopleId: s for s in spouses}
+
+    def safe(s):
+        return str(s) if s is not None else ""
+
+    def build_names(p, spouse):
+        first1 = safe(p.NickName).strip() or safe(p.FirstName).strip()
+        last1 = safe(p.LastName).strip()
+        if spouse:
+            first2 = safe(spouse.NickName).strip() or safe(spouse.FirstName).strip()
+            last2 = safe(spouse.LastName).strip()
+            if last1 == last2:
+                informalName = "{} and {} {}".format(first1, first2, last1)
+            else:
+                informalName = "{} {} and {} {}".format(first1, last1, first2, last2)
+            informalSalutation = "{} and {}".format(first1, first2)
+        else:
+            informalName = "{} {}".format(first1, last1)
+            informalSalutation = first1
+        return informalName.strip(), informalSalutation.strip()
+
+    for p in donors:
+        amount = "{:.2f}".format(p.ContributionAmount)
+        try:
+            parsed_date = datetime.datetime.strptime(str(p.ContributionDate), "%m/%d/%Y %I:%M:%S %p")
+        except:
+            try:
+                parsed_date = datetime.datetime.strptime(str(p.ContributionDate), "%m/%d/%Y")
+            except:
+                parsed_date = None
+        formatted_date = parsed_date.strftime("%m-%d-%Y") if parsed_date else str(p.ContributionDate)
+
+        try:
+            batch_date = datetime.datetime.strptime(str(p.DepositDate).split(" ")[0], "%m/%d/%Y")
+            batch_formatted = batch_date.strftime("%m-%d-%Y")
+        except:
+            batch_formatted = str(p.DepositDate)
+
+        totalAmount += p.ContributionAmount
+        spouse = spouse_lookup.get(p.SpouseId)
+        informalName, informalSalutation = build_names(p, spouse)
+
+        csv_rows.append([
+            informalName,
+            informalSalutation,
+            safe(p.PrimaryAddress),
+            safe(p.PrimaryAddress2),
+            safe(p.PrimaryCity),
+            safe(p.PrimaryState),
+            safe(p.PrimaryZip),
+            amount,
+            formatted_date,
+            batch_formatted,
+            safe(p.ContributionDesc)
+        ])
+
+        if addNote == '1':
+            try:
+                desc = safe(p.ContributionDesc).replace("{", "").replace("}", "")
+                noteContent = "Contribution of ${} on {}, Description: {}".format(amount, formatted_date, desc)
+                noteContent = noteContent.replace("\n", " ").replace("\r", "")
+                model.CreateTaskNote(ownerId, p.PeopleId, None, roleId, True, "Donor Letter", noteContent, None, keywordIdList)
+            except Exception as e:
+                print("Error writing note for {}: {}".format(informalName, str(e)))
+
+    totalAmountFormatted = "{:.2f}".format(totalAmount)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerows(csv_rows)
+    csv_content = output.getvalue()
+    output.close()
+    csv_text = csv_content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    csv_base64 = base64.b64encode(csv_content.encode('utf-8')).decode('utf-8')
+
+    Report += '<h3>Total Contributions: ${}</h3><br>'.format(totalAmountFormatted)
+    Report += (
+        '<h4>CSV Output</h4>'
+        '<textarea id="csvText" rows="10" cols="100">{}</textarea><br>'
+        '<button onclick="copyCSV()">Copy to Clipboard</button><br><br>'
+        '<a href="data:text/csv;base64,{}" download="memorial_acknowledgments.csv">'
+        '<button style="padding: 6px 12px; font-size: 14px;">⬇️ Download CSV File</button>'
+        '</a>'
+        '<script>'
+        'function copyCSV() {{'
+        '  const csvField = document.getElementById("csvText");'
+        '  csvField.select();'
+        '  document.execCommand("copy");'
+        '  alert("CSV copied to clipboard");'
+        '}}'
+        '</script>'
+    ).format(csv_text, csv_base64)
+
+print(model.RenderTemplate(Report))

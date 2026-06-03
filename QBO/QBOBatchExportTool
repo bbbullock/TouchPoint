@@ -2,8 +2,8 @@
 
 # =============================================================================
 # QBOBatchExportTool
-# Version: 2.1.1
-# Last Updated: 2026-05-07
+# Version: 2.2.0
+# Last Updated: 2026-06-02
 #
 # Purpose:
 #   Provides the TouchPoint web UI for selecting eligible contribution batches
@@ -27,6 +27,11 @@
 #   - Ready-to-export batches are highlighted light green.
 #   - Open/non-Reconciled batches are highlighted light red.
 #
+# Major v2.2.0 Change:
+#   - Removes dependency on standalone Special Content SQL script:
+#         TESTMultiBatchReportSQL
+#   - Batch detail SQL is now embedded directly in this Python script.
+#
 # Configuration Storage:
 #   Tool setup is stored in:
 #       TPxi_QBOBatchExportTool_Config
@@ -36,68 +41,6 @@
 #         "enable_clear_export_flag": true,
 #         "last_paper_batch_id": 1993
 #       }
-#
-# Primary Functions:
-#   - Displays recent batches for export review
-#   - Shows batch metadata in a grid:
-#       - Batch ID
-#       - Deposit Date
-#       - Ref. ID
-#       - Batch Type
-#       - Source
-#       - Items
-#       - Amount
-#       - Status
-#       - Exported
-#       - Eligibility
-#   - Allows searching/filtering of the batch list
-#   - Allows multi-select export of batches
-#   - Generates the final QBO CSV directly from this tool
-#   - Marks exported batches in TPxi_QBOExport_ExportLog
-#   - Optionally allows clearing export flags during testing
-#
-# Final CSV Columns:
-#   - JournalNo
-#   - JournalDate
-#   - AccountName
-#   - Debits
-#   - Credits
-#   - Description
-#   - Name
-#   - Currency
-#   - Location
-#   - Class
-#
-# Export Logic:
-#   For each selected batch:
-#
-#   1. Bank / Checking Row
-#      - One debit row is created using:
-#            batch Base total + batch Fees total
-#      - AccountName comes from the Bank mapping grid by Batch Type
-#      - Description format example:
-#            TP-1990:Checking
-#
-#   2. Income Rows
-#      - One credit row per eligible fund/detail row
-#      - Credit amount uses the Base column, not Amount
-#      - FundId is derived from the TouchPoint Fund text when it ends in:
-#            Fund Name (1234)
-#      - Mapping priority:
-#            a. Fund mapping by derived FundId
-#            b. Account Code mapping by GeneralLedger
-#      - Description format example:
-#            TP-1990:Memorial Gift
-#
-#   3. Merchant Fees
-#      - Merchant Fees are calculated from the Fees column in the batch detail
-#        source data.
-#      - The fee total is added to the Checking debit row.
-#      - A separate Merchant Fees CREDIT row is created.
-#      - AccountName and Class are read from:
-#            TPxi_FinanceExport_MerchantFeeMapping
-#      - If an actual FundID 6050 detail row ever appears, it is skipped in the
-#        normal income loop to avoid duplicate fee credits.
 #
 # Mapping Sources:
 #   - TPxi_FinanceExport_Mappings
@@ -116,21 +59,11 @@
 #   Export history is stored in:
 #       TPxi_QBOExport_ExportLog
 #
-#   When a batch export succeeds, each batch is flagged with:
-#       - exported_on
-#       - exported_by
-#
 # Export Eligibility:
 #   A batch can be exported only when:
 #       - BundleHeaderId > Last Paper Batch ID
 #       - Status = Reconciled
 #       - Export Status = No
-#
-# Paper Batch Behavior:
-#   - Batches with Batch ID less than or equal to Last Paper Batch ID are treated
-#     as historical/paper batches.
-#   - Historical/paper batches display Exported = Paper.
-#   - Historical/paper batches are not selectable and cannot be exported.
 #
 # Server-Side Validation:
 #   Export action re-validates selected batches server-side before generating
@@ -145,36 +78,10 @@
 #       - Generated CSV would be out of balance
 #       - Generated CSV has rows with blank AccountName
 #
-# Filename Rules:
-#   1 batch:
-#       QBO_Export_Batch_<BatchId>_<timestamp>.csv
-#
-#   2 to 5 batches:
-#       QBO_Export_<Batch1>-<Batch2>-..._<timestamp>.csv
-#
-#   More than 5 batches:
-#       QBO_Export_<count>batches_<firstBatchId>_to_<lastBatchId>_<timestamp>.csv
-#
-# AJAX Actions:
-#   save_setup
-#       Input:
-#           enable_clear_export_flag = 1 or 0
-#           last_paper_batch_id = integer
-#       Result:
-#           Saves setup values to TPxi_QBOBatchExportTool_Config
-#
-#   clear_export_flags
-#       Input:
-#           batchids = comma-separated batch IDs
-#       Result:
-#           Removes selected export-eligible batch IDs from
-#           TPxi_QBOExport_ExportLog
-#
 # Notes:
 #   - This script replaces the former two-script flow:
 #         QBOBatchExportTool -> QBOEnrichedExport
-#   - QBOEnrichedExport should not be needed for normal use after this version
-#     is installed and tested.
+#   - This script no longer requires TESTMultiBatchReportSQL.
 # =============================================================================
 
 import re
@@ -183,8 +90,8 @@ import datetime
 
 model.Title = 'QBO Batch Export Tool'
 
-SCRIPT_VERSION = "2.1.1"
-SCRIPT_LAST_UPDATED = "2026-05-07"
+SCRIPT_VERSION = "2.2.0"
+SCRIPT_LAST_UPDATED = "2026-06-02"
 
 CONFIG_CONTENT_NAME = "TPxi_QBOBatchExportTool_Config"
 
@@ -474,7 +381,94 @@ def get_batch_summary(cleanlist):
         return []
 
 def get_batch_detail(cleanlist):
-    sqlgifts = model.Content('TESTMultiBatchReportSQL')
+    sqlgifts = '''
+    DECLARE @Results1 TABLE (
+        BundleHeaderId int,
+        DepositDate   date,
+        FundName      nvarchar(256),
+        GeneralLedger nvarchar(100),
+        Amount        numeric(11,2),
+        Base          numeric(11,2),
+        Fees          numeric(11,2)
+    );
+
+    INSERT INTO @Results1 (
+        BundleHeaderId,
+        DepositDate,
+        FundName,
+        GeneralLedger,
+        Amount,
+        Base,
+        Fees
+    )
+    SELECT
+        h.BundleHeaderId,
+        CONVERT(date, h.DepositDate) AS DepositDate,
+        CASE 
+            WHEN cb.ContributionTypeId = 99 
+                THEN ISNULL(accnt.Description, '') 
+            ELSE cf.FundName + ' (' + CONVERT(nvarchar(12), cb.FundId) + ')' 
+        END AS FundName,
+        CASE 
+            WHEN cb.ContributionTypeId = 99 
+                THEN ISNULL(accnt.Code, '') 
+            ELSE cf.FundIncomeAccount 
+        END AS GeneralLedger,
+        cb.ContributionAmount AS Amount,
+        CASE 
+            WHEN cb.DonorCoveredFee = 0 
+                THEN cb.ContributionAmount
+            ELSE cb.ContributionAmount - ISNULL(cb.ChargedFee, 0) 
+        END AS Base,
+        CASE 
+            WHEN cb.DonorCoveredFee = 0 
+                THEN 0
+            ELSE ISNULL(cb.ChargedFee, 0) 
+        END AS Fees
+    FROM dbo.Contribution AS cb
+    LEFT JOIN dbo.People AS p
+        ON p.PeopleId = cb.PeopleId
+    LEFT JOIN lookup.AccountCode AS accnt
+        ON accnt.Id = cb.AccountCodeId
+    JOIN dbo.BundleDetail AS d
+        ON d.ContributionId = cb.ContributionId
+    JOIN dbo.BundleHeader AS h
+        ON h.BundleHeaderId = d.BundleHeaderId
+    RIGHT JOIN lookup.BundleHeaderTypes bt
+        ON bt.Id = h.BundleHeaderTypeId
+    INNER JOIN dbo.ContributionFund AS cf
+        ON cf.FundId = cb.FundId
+    WHERE d.BundleHeaderId IN (SELECT Value FROM dbo.SplitInts(@batchids))
+      AND ISNULL(cb.PledgeFlag, 0) = 0
+      AND cb.ContributionStatusId = 0
+      AND cb.ContributionTypeId NOT IN (6,7,8);
+
+    SELECT
+        DepositDate AS GiftDate,
+        DepositDate,
+        CASE 
+            WHEN BundleHeaderId IS NULL THEN 'Total'
+            WHEN FundName IS NULL THEN ''
+            ELSE FundName
+        END AS Fund,
+        GeneralLedger,
+        COUNT(*) AS [Count],
+        SUM(Amount) AS Amount,
+        SUM(Base) AS Base,
+        SUM(Fees) AS Fees,
+        BundleHeaderId AS BatchId
+    FROM @Results1
+    GROUP BY GROUPING SETS
+    (
+        (BundleHeaderId, DepositDate, FundName, GeneralLedger),
+        (BundleHeaderId, DepositDate),
+        ()
+    )
+    ORDER BY
+        BatchId,
+        DepositDate,
+        Fund;
+    '''
     params = { 'batchids': cleanlist }
     return list(q.QuerySql(sqlgifts, params))
 
@@ -733,9 +727,6 @@ def build_journal_rows(cleanlist):
             general_ledger = row_str(r, ["GeneralLedger"])
             derived_fund_id, cleaned_fund_name = derive_fund_id_and_name(fund_text)
 
-            # Merchant Fees are handled from the Fees column below.
-            # If a FundID 6050 detail row appears in the source data,
-            # skip it here to avoid duplicating the merchant fee credit.
             if derived_fund_id == MERCHANT_FEE_FUND_ID:
                 continue
 
@@ -1354,7 +1345,7 @@ else:
                     <div>
                         <h3 style="margin:0">Select Batches for Export</h3>
                         <div class="muted" style="margin-top:6px">
-                            Version 2.1.1 generates the final QBO CSV directly from this tool.
+                            Version 2.2.0 generates the final QBO CSV directly from this tool.
                             Export is allowed only for batches with Status = <strong>Reconciled</strong>, Exported = <strong>No</strong>, and Batch ID {5} or higher.
                         </div>
                         <div class="paper-note">
@@ -1363,6 +1354,7 @@ else:
                         <div class="v2-note">
                             Ready-to-export batches are highlighted green. Open/non-Reconciled batches are highlighted red.
                             Exported batches can only be selected when the Clear Export Flag testing feature is enabled.
+                            This version no longer depends on TESTMultiBatchReportSQL.
                         </div>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap">

@@ -5,7 +5,7 @@ import datetime
 
 # =============================================================================
 # QuickBooks Account Translations
-# Version: 1.6.1
+# Version: 1.6.2
 # Last Updated: 2026-06-22
 #
 # Purpose:
@@ -37,6 +37,11 @@ import datetime
 #     malformed JSON and wrong top-level types. Malformed content raises a
 #     record-specific error without exposing its stored value.
 #
+# v1.6.2 Change:
+#   - Translation storage now fails closed. Grid and mutation requests return
+#     record-specific errors for malformed content, and save/import operations
+#     cannot overwrite malformed configuration, mappings, or bank options.
+#
 # Storage:
 #   - TPxi_FinanceExport_Mappings
 #   - TPxi_FinanceExport_Config
@@ -49,7 +54,7 @@ import datetime
 #   - TPxi_FinanceExport_MerchantFeeConfig
 # =============================================================================
 
-SCRIPT_VERSION = "1.6.1"
+SCRIPT_VERSION = "1.6.2"
 SCRIPT_LAST_UPDATED = "2026-06-22"
 
 FUND_MAPPING_CONTENT_NAME = "TPxi_FinanceExport_Mappings"
@@ -146,14 +151,77 @@ def get_default_mappings(map_type):
         return dict(DEFAULT_MERCHANT_FEE_MAPPINGS)
     return dict(DEFAULT_MAPPINGS)
 
+def validate_config_content(config_name, cfg, map_type):
+    columns = cfg.get("columns")
+    if not isinstance(columns, list):
+        raise Exception(
+            "Special Content '{0}' must contain a 'columns' JSON array.".format(
+                config_name
+            )
+        )
+
+    if map_type != "bank" and not columns:
+        raise Exception(
+            "Special Content '{0}' must contain at least one mapping column.".format(
+                config_name
+            )
+        )
+
+    seen_keys = {}
+    for column in columns:
+        if not isinstance(column, dict):
+            raise Exception(
+                "Special Content '{0}' contains an invalid column definition.".format(
+                    config_name
+                )
+            )
+
+        key = column.get("key")
+        label = column.get("label")
+        if not isinstance(key, basestring) or not key.strip():
+            raise Exception(
+                "Special Content '{0}' contains a column without a valid key.".format(
+                    config_name
+                )
+            )
+        if not isinstance(label, basestring) or not label.strip():
+            raise Exception(
+                "Special Content '{0}' contains a column without a valid label.".format(
+                    config_name
+                )
+            )
+        if key in seen_keys:
+            raise Exception(
+                "Special Content '{0}' contains duplicate column keys.".format(
+                    config_name
+                )
+            )
+        seen_keys[key] = True
+
+def validate_mapping_content(mapping_name, mappings):
+    for entry in mappings.values():
+        if not isinstance(entry, dict):
+            raise Exception(
+                "Special Content '{0}' must contain JSON object values keyed by row ID.".format(
+                    mapping_name
+                )
+            )
+
+def validate_bank_batch_type_options(options):
+    for option in options:
+        if not isinstance(option, basestring) or not option.strip():
+            raise Exception(
+                "Special Content '{0}' must contain only nonblank text values.".format(
+                    BANK_BATCH_TYPE_OPTIONS_CONTENT_NAME
+                )
+            )
+
 def load_config(map_type):
     mapping_name, config_name = get_storage_names(map_type)
     cfg = read_json_content(config_name, dict)
     if cfg is not None:
-        if map_type == "bank":
-            return cfg
-        if cfg.get("columns"):
-            return cfg
+        validate_config_content(config_name, cfg, map_type)
+        return cfg
 
     if map_type == "bank":
         cfg = {"columns": []}
@@ -165,12 +233,17 @@ def load_config(map_type):
 
 def save_config(map_type, cfg):
     mapping_name, config_name = get_storage_names(map_type)
+    current = read_json_content(config_name, dict)
+    if current is not None:
+        validate_config_content(config_name, current, map_type)
+    validate_config_content(config_name, cfg, map_type)
     model.WriteContentText(config_name, json.dumps(cfg, indent=2), "")
 
 def load_mappings(map_type):
     mapping_name, config_name = get_storage_names(map_type)
     mappings = read_json_content(mapping_name, dict)
     if mappings is not None:
+        validate_mapping_content(mapping_name, mappings)
         return mappings
 
     defaults = get_default_mappings(map_type)
@@ -179,6 +252,10 @@ def load_mappings(map_type):
 
 def save_mappings(map_type, mappings):
     mapping_name, config_name = get_storage_names(map_type)
+    current = read_json_content(mapping_name, dict)
+    if current is not None:
+        validate_mapping_content(mapping_name, current)
+    validate_mapping_content(mapping_name, mappings)
     model.WriteContentText(mapping_name, json.dumps(mappings, indent=2), "")
 
 def normalize_batch_type_option(value):
@@ -189,6 +266,7 @@ def normalize_batch_type_option(value):
 def load_bank_batch_type_options():
     options = read_json_content(BANK_BATCH_TYPE_OPTIONS_CONTENT_NAME, list)
     if options is not None:
+        validate_bank_batch_type_options(options)
         cleaned = []
         seen = {}
         for item in options:
@@ -196,13 +274,17 @@ def load_bank_batch_type_options():
             if val and val not in seen:
                 seen[val] = True
                 cleaned.append(val)
-        if cleaned:
-            return cleaned
+        return cleaned
 
     save_bank_batch_type_options(DEFAULT_BANK_BATCH_TYPE_OPTIONS)
     return list(DEFAULT_BANK_BATCH_TYPE_OPTIONS)
 
 def save_bank_batch_type_options(options):
+    current = read_json_content(BANK_BATCH_TYPE_OPTIONS_CONTENT_NAME, list)
+    if current is not None:
+        validate_bank_batch_type_options(current)
+    validate_bank_batch_type_options(options)
+
     cleaned = []
     seen = {}
     for item in options:
@@ -213,6 +295,36 @@ def save_bank_batch_type_options(options):
 
     model.WriteContentText(BANK_BATCH_TYPE_OPTIONS_CONTENT_NAME, json.dumps(cleaned, indent=2), "")
     return cleaned
+
+def get_action_storage_error(action, map_type):
+    try:
+        if action in ["get_grid", "save_mapping", "save_bulk"]:
+            load_config(map_type)
+            load_mappings(map_type)
+            if map_type == "bank":
+                load_bank_batch_type_options()
+
+        elif action == "delete_mapping":
+            load_mappings(map_type)
+
+        elif action == "import_mappings":
+            load_config(map_type)
+            load_mappings(map_type)
+            if map_type == "bank":
+                load_bank_batch_type_options()
+
+        elif action == "add_bank_batch_type":
+            load_bank_batch_type_options()
+            load_mappings("bank")
+
+        elif action == "delete_bank_batch_type":
+            load_bank_batch_type_options()
+            load_mappings("bank")
+
+    except Exception as e:
+        return str(e)
+
+    return ""
 
 def add_bank_batch_type(option_name):
     option_name = normalize_batch_type_option(option_name)
@@ -483,10 +595,20 @@ def build_grid_rows(map_type):
 # =============================================================================
 
 is_post = model.HttpMethod == "post"
-action = str(Data.action) if is_post and hasattr(Data, "action") else ""
+action = str(Data.action).strip() if is_post and hasattr(Data, "action") else ""
 map_type = get_map_type()
+storage_error = get_action_storage_error(action, map_type) if action else ""
 
-if action == "get_grid":
+if action and storage_error:
+    print json.dumps({
+        "success": False,
+        "message": storage_error,
+        "version": SCRIPT_VERSION,
+        "last_updated": SCRIPT_LAST_UPDATED,
+        "map_type": map_type
+    })
+
+elif action == "get_grid":
     columns, rows = build_grid_rows(map_type)
     response = {
         "success": True,
@@ -726,6 +848,9 @@ elif action == "import_mappings":
             if not isinstance(new_mappings, dict):
                 raise Exception("JSON must be an object with row IDs as keys")
 
+            mapping_name, config_name = get_storage_names(map_type)
+            validate_mapping_content(mapping_name, new_mappings)
+
             if map_type == "bank":
                 bank_batch_type_options = load_bank_batch_type_options()
                 cleaned = {}
@@ -736,14 +861,16 @@ elif action == "import_mappings":
                         if bank_name:
                             cleaned[batch_type] = {"bank_name": bank_name}
                 save_mappings("bank", cleaned)
-                print json.dumps({"success": True, "message": "Imported {0} bank mappings".format(len(cleaned))})
+                print json.dumps({"success": True, "message": "Replaced saved Bank Code mappings with {0} imported mapping(s)".format(len(cleaned))})
             elif map_type == "merchant":
                 item = new_mappings.get(MERCHANT_FEE_FUND_ID, {})
                 cleaned = {}
                 if isinstance(item, dict):
+                    cfg = load_config("merchant")
+                    columns = cfg.get("columns", DEFAULT_COLUMNS)
                     entry = {}
                     has_any_value = False
-                    for col in DEFAULT_COLUMNS:
+                    for col in columns:
                         key = col["key"]
                         val = str(item.get(key, "")).strip()
                         entry[key] = val
@@ -752,10 +879,11 @@ elif action == "import_mappings":
                     if has_any_value:
                         cleaned[MERCHANT_FEE_FUND_ID] = entry
                 save_mappings("merchant", cleaned)
-                print json.dumps({"success": True, "message": "Imported Merchant Fees mapping"})
+                print json.dumps({"success": True, "message": "Replaced the saved Merchant Fees mapping"})
             else:
                 save_mappings(map_type, new_mappings)
-                print json.dumps({"success": True, "message": "Imported {0} mappings".format(len(new_mappings))})
+                label = "FundId" if map_type == "fund" else "Account Code"
+                print json.dumps({"success": True, "message": "Replaced saved {0} mappings with {1} imported mapping(s)".format(label, len(new_mappings))})
         except Exception as e:
             print json.dumps({"success": False, "message": str(e)})
 

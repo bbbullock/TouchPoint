@@ -5,7 +5,7 @@ This project stores TouchPoint Python scripts used to maintain QuickBooks Online
 ## Current Tools
 
 - Tool: `QuickBooksAccountTranslations`
-  - Version: `1.6.1`
+  - Version: `1.6.2`
   - Last updated in script header: `2026-06-22`
   - Source file: `src/QuickBooksAccountTranslations.py`
 - Tool: `QBOBatchExportTool`
@@ -21,6 +21,10 @@ This project stores TouchPoint Python scripts used to maintain QuickBooks Online
 - Account code translations
 - Bank batch type / bank account translations
 - Merchant fee translations
+
+Missing translation storage may initialize documented defaults. Existing
+malformed storage blocks grid loading and related mutations instead of being
+silently replaced.
 
 `QBOBatchExportTool.py` provides the TouchPoint web UI for:
 

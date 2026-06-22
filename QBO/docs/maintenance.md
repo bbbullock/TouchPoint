@@ -87,7 +87,8 @@ Use this checklist for changes to either active script.
   overwritten.
 - `legacy/Quickbooks_Account_Translations_root_legacy.py` is an archived
   root-level copy of version 1.6.0. Active version 1.6.1 adds strict JSON
-  reading.
+  reading, and active version 1.6.2 adds guarded translation actions and schema
+  validation.
 - Legacy files are reference snapshots. Never patch or deploy them as the active
   production source.
 

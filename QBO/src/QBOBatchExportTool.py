@@ -643,7 +643,15 @@ def validate_journal_rows(journal_rows):
 
         account_name = str(row.get("AccountName", "")).strip()
         if not account_name:
-            blank_account_rows.append("{0}: {1}".format(rownum, row.get("Description", "")))
+            row_detail = "JournalNo={0} Date={1} Debits={2} Credits={3} Class={4} Desc={5}".format(
+                row.get("JournalNo", ""),
+                row.get("JournalDate", ""),
+                row.get("Debits", ""),
+                row.get("Credits", ""),
+                row.get("Class", ""),
+                row.get("Description", "")
+            )
+            blank_account_rows.append("Row {0}: {1}".format(rownum, row_detail))
 
         rownum += 1
 

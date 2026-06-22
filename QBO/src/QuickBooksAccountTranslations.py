@@ -45,7 +45,7 @@ import datetime
 # =============================================================================
 
 SCRIPT_VERSION = "1.6.0"
-SCRIPT_LAST_UPDATED = "2026-04-24"
+SCRIPT_LAST_UPDATED = "2026-05-04"
 
 FUND_MAPPING_CONTENT_NAME = "TPxi_FinanceExport_Mappings"
 FUND_CONFIG_CONTENT_NAME = "TPxi_FinanceExport_Config"

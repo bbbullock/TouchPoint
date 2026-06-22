@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Local/private config
+.env
+.env.*
+*.local
+config.json
+secrets.*
+credentials.*
+
+# Financial exports - do not commit real exports
+exports/
+*.csv
+*.xlsx
+*.xls
+
+# Logs/temp
+logs/
+*.log
+tmp/

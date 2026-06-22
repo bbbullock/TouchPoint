@@ -1,5 +1,39 @@
 # QBOBatchExportTool Configuration Notes
 
+## Special Content Contract
+
+The tools distinguish two failure states:
+
+- **Missing or blank** means the record does not exist or contains no
+  non-whitespace text. The behavior in the table below applies.
+- **Malformed** means invalid JSON, the wrong top-level JSON type, or a JSON
+  value that fails the documented schema. Malformed content is never replaced
+  automatically.
+
+| Special Content record | Top-level type | Missing or blank behavior | Malformed behavior |
+| --- | --- | --- | --- |
+| `TPxi_QBOBatchExportTool_Config` | Object | Use safe in-memory defaults without writing | Display an error, force testing off, and block Setup saves |
+| `TPxi_FinanceExport_Mappings` | Object | Translations tool creates `{}`; exporter blocks until present | Block the affected grid/actions and block export |
+| `TPxi_FinanceExport_Config` | Object | Create the documented mapping-column default | Block the affected grid/actions |
+| `TPxi_FinanceExport_AccountCodeMappings` | Object | Translations tool creates `{}`; exporter blocks until present | Block the affected grid/actions and block export |
+| `TPxi_FinanceExport_AccountCodeConfig` | Object | Create the documented mapping-column default | Block the affected grid/actions |
+| `TPxi_FinanceExport_BankMappings` | Object | Translations tool creates `{}`; exporter blocks until present | Block the affected grid/actions and block export |
+| `TPxi_FinanceExport_BankConfig` | Object | Create `{"columns": []}` | Block the affected grid/actions |
+| `TPxi_FinanceExport_BankBatchTypeOptions` | Array | Create the documented default option list | Block bank grids and bank-type/mapping actions |
+| `TPxi_FinanceExport_MerchantFeeMapping` | Object | Create the documented `6050` default; exporter blocks until present | Block the affected grid/actions and block export |
+| `TPxi_FinanceExport_MerchantFeeConfig` | Object | Create the documented mapping-column default | Block the affected grid/actions |
+| `TPxi_QBOExport_ExportLog` | Object | Treat as `{}` and create it on the next successful export | Block export and Clear Export Flag operations |
+
+In this documentation, **Object** means a JSON object (`{...}`), and **Array**
+means a JSON array (`[...]`). Mapping objects must contain object values keyed
+by row ID. Configuration and bank-option schema requirements are documented in
+`docs/account-translations.md`.
+
+Errors may identify the record and expected schema, but must never include the
+stored JSON value. This prevents financial mappings, identifiers, and private
+configuration from leaking into browser errors, logs, screenshots, or support
+tickets.
+
 ## Tool Setup
 
 Special Content name:
@@ -33,6 +67,10 @@ When `enable_clear_export_flag` is `false`, exports are limited to batches dated
 
 Keep this flag `false` during normal production use. Enabling it also exposes
 the action that removes entries from the export log.
+
+The code default is fail-closed: `enable_clear_export_flag` is `false`. A
+missing configuration record cannot enable testing, and malformed configuration
+forces testing off until an administrator repairs the record manually.
 
 ## Mapping Content
 

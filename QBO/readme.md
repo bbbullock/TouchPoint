@@ -56,7 +56,10 @@ The script expects these TouchPoint Special Content records:
 - `TPxi_FinanceExport_MerchantFeeConfig`
 - `TPxi_QBOExport_ExportLog`
 
-See `docs/configuration.md` for the storage schemas and export contract.
+See `docs/configuration.md` for the complete Special Content type/behavior
+matrix and export contract. Administrators should use the **Special Content
+Backup And Manual Repair** procedure in `docs/maintenance.md` when a record is
+malformed.
 
 ## Updating Workflow
 

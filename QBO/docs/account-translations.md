@@ -42,6 +42,11 @@ TPxi_FinanceExport_MerchantFeeMapping
 TPxi_FinanceExport_MerchantFeeConfig
 ```
 
+The authoritative top-level type and missing/malformed behavior for every
+record is listed in `docs/configuration.md` under **Special Content Contract**.
+Translation mapping and configuration records are JSON objects; bank batch-type
+options are a JSON array.
+
 ## Configuration Records
 
 Fund, account-code, and merchant-fee configuration records use this shape:
@@ -64,6 +69,10 @@ missing or blank.
 Invalid JSON and valid JSON with the wrong top-level type raise an error naming
 the affected Special Content record. The script does not include the stored
 value in the error and does not replace malformed content with defaults.
+
+Do not paste a malformed record into an issue, log, email, or screenshot while
+troubleshooting. Record only its Special Content name and the sanitized error,
+then follow the manual-repair runbook in `docs/maintenance.md`.
 
 Existing configuration objects must contain a `columns` array. Non-bank
 configuration requires at least one column, and every column requires unique,

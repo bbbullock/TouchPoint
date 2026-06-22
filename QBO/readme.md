@@ -9,8 +9,8 @@ This project stores TouchPoint Python scripts used to maintain QuickBooks Online
   - Last updated in script header: `2026-05-04`
   - Source file: `src/QuickBooksAccountTranslations.py`
 - Tool: `QBOBatchExportTool`
-- Version: `2.3.0`
-- Last updated in script: `2026-06-18`
+  - Version: `2.3.1`
+  - Last updated in script: `2026-06-22`
   - Source file: `src/QBOBatchExportTool.py`
 
 ## Purpose
@@ -38,13 +38,17 @@ The script expects these TouchPoint Special Content records:
 
 - `TPxi_QBOBatchExportTool_Config`
 - `TPxi_FinanceExport_Mappings`
+- `TPxi_FinanceExport_Config`
 - `TPxi_FinanceExport_AccountCodeMappings`
+- `TPxi_FinanceExport_AccountCodeConfig`
 - `TPxi_FinanceExport_BankMappings`
+- `TPxi_FinanceExport_BankConfig`
 - `TPxi_FinanceExport_BankBatchTypeOptions`
 - `TPxi_FinanceExport_MerchantFeeMapping`
+- `TPxi_FinanceExport_MerchantFeeConfig`
 - `TPxi_QBOExport_ExportLog`
 
-See `docs/configuration.md` for the expected configuration shape.
+See `docs/configuration.md` for the storage schemas and export contract.
 
 ## Updating Workflow
 
@@ -54,6 +58,10 @@ See `docs/configuration.md` for the expected configuration shape.
 4. Paste the updated script into the corresponding TouchPoint Python script.
 5. For translation changes, verify the grids load and save in TouchPoint.
 6. For export changes, test with a small reconciled batch before normal use.
+
+Follow `docs/maintenance.md` for the complete backup, deployment, validation,
+rollback, and Git safety procedure. JSON imports replace the stored mappings for
+the active tab, so export a backup before importing.
 
 ## Notes
 

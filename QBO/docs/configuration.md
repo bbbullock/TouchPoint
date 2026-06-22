@@ -12,10 +12,14 @@ Example:
 
 ```json
 {
-  "enable_clear_export_flag": true,
+  "enable_clear_export_flag": false,
   "last_paper_batch_id": 1993
 }
 ```
+
+If the record is absent or malformed, the script uses and displays these same
+defaults, so testing behavior remains disabled. `last_paper_batch_id` must be a
+whole number greater than zero.
 
 When `enable_clear_export_flag` is `true`, the tool allows testing behavior:
 
@@ -23,6 +27,9 @@ When `enable_clear_export_flag` is `true`, the tool allows testing behavior:
 - Batches from a month that is still open can be exported.
 
 When `enable_clear_export_flag` is `false`, exports are limited to batches dated before the current month.
+
+Keep this flag `false` during normal production use. Enabling it also exposes
+the action that removes entries from the export log.
 
 ## Mapping Content
 
@@ -47,6 +54,8 @@ Expected shape:
 }
 ```
 
+Fund mappings take precedence over account-code mappings when both could apply.
+
 ### Account code mappings
 
 Special Content name:
@@ -66,6 +75,8 @@ Expected shape:
 }
 ```
 
+Account-code mappings are used only when the row has no matching FundId mapping.
+
 ### Bank mappings
 
 Special Content name:
@@ -83,6 +94,8 @@ Expected shape:
   }
 }
 ```
+
+The top-level key must exactly match the TouchPoint batch-type description.
 
 ### Bank batch type options
 
@@ -103,6 +116,9 @@ Expected shape:
 ]
 ```
 
+These options control the rows accepted by the translations tool. They do not
+change TouchPoint's batch-type lookup table.
+
 ### Merchant fee mapping
 
 Special Content name:
@@ -122,6 +138,43 @@ Expected shape:
 }
 ```
 
+FundId `6050` is treated specially: normal income-row generation skips it and
+the exporter creates a separate merchant-fee credit using this mapping.
+
+## Export Construction Contract
+
+The CSV columns and order are part of the QBO import contract and must not be
+changed without an approved migration:
+
+```text
+JournalNo,JournalDate,AccountName,Debits,Credits,Description,Name,Currency,Location,Class
+```
+
+For each batch, the exporter creates:
+
+1. One bank debit for base contributions plus donor-covered fees, using the
+   batch-type bank mapping.
+2. Income credits for each non-total, nonzero detail row. FundId mapping is
+   tried first, then account-code mapping.
+3. One merchant-fee credit when the batch contains donor-covered fees.
+
+`JournalNo` is `TP-<batch ID>`. Monetary values use two decimal places and CSV
+lines use CRLF endings. Export is blocked when the journal is out of balance or
+any generated row has a blank `AccountName`.
+
+## Batch Retrieval And Eligibility
+
+The main grid retrieves at most 250 batches deposited within the previous 180
+days. This is a display/query limit, not an archival policy.
+
+The server revalidates selected IDs. A batch must:
+
+- Be greater than `last_paper_batch_id`.
+- Have status `Reconciled`.
+- Have no export-log entry.
+- Have a deposit date before the first day of the current month, unless the
+  testing flag is enabled.
+
 ## Export Log
 
 Special Content name:
@@ -140,3 +193,21 @@ Expected shape:
   }
 }
 ```
+
+The script writes the export-log entry immediately before rendering the browser
+download response. If the download does not complete, verify that no QBO import
+occurred, temporarily enable the testing feature, clear the affected export
+flag, disable the testing feature again, and retry. Never clear an export flag
+without confirming whether the original file was imported into QBO.
+
+## Related Translation Configuration
+
+The translation tool also owns these configuration records:
+
+- `TPxi_FinanceExport_Config`
+- `TPxi_FinanceExport_AccountCodeConfig`
+- `TPxi_FinanceExport_BankConfig`
+- `TPxi_FinanceExport_MerchantFeeConfig`
+
+Their schemas and recovery behavior are documented in
+`docs/account-translations.md`.

@@ -2,8 +2,8 @@
 
 # =============================================================================
 # QBOBatchExportTool
-# Version: 2.3.0
-# Last Updated: 2026-06-18
+# Version: 2.3.1
+# Last Updated: 2026-06-22
 #
 # Purpose:
 #   Provides the TouchPoint web UI for selecting eligible contribution batches
@@ -37,13 +37,17 @@
 #   - The current-month export restriction is bypassed only when the Clear
 #     Export Flag testing feature is enabled in Setup.
 #
+# Major v2.3.1 Change:
+#   - Clear Export Flag testing now defaults to disabled when tool configuration
+#     is missing, malformed, or omits the setting.
+#
 # Configuration Storage:
 #   Tool setup is stored in:
 #       TPxi_QBOBatchExportTool_Config
 #
 #   Example:
 #       {
-#         "enable_clear_export_flag": true,
+#         "enable_clear_export_flag": false,
 #         "last_paper_batch_id": 1993
 #       }
 #
@@ -99,8 +103,8 @@ import datetime
 
 model.Title = 'QBO Batch Export Tool'
 
-SCRIPT_VERSION = "2.3.0"
-SCRIPT_LAST_UPDATED = "2026-06-18"
+SCRIPT_VERSION = "2.3.1"
+SCRIPT_LAST_UPDATED = "2026-06-22"
 
 CONFIG_CONTENT_NAME = "TPxi_QBOBatchExportTool_Config"
 
@@ -114,7 +118,7 @@ MERCHANT_FEE_FUND_ID = "6050"
 REQUIRED_EXPORT_STATUS = "Reconciled"
 
 DEFAULT_CONFIG = {
-    "enable_clear_export_flag": True,
+    "enable_clear_export_flag": False,
     "last_paper_batch_id": 1993
 }
 

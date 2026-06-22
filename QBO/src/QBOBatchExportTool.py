@@ -2,7 +2,7 @@
 
 # =============================================================================
 # QBOBatchExportTool
-# Version: 2.3.2
+# Version: 2.3.3
 # Last Updated: 2026-06-22
 #
 # Purpose:
@@ -45,6 +45,11 @@
 #   - Special Content JSON reading now distinguishes missing content from
 #     malformed JSON and wrong top-level types. Malformed content raises a
 #     record-specific error without exposing its stored value.
+#
+# Major v2.3.3 Change:
+#   - Export prerequisites now fail closed. Missing or malformed mapping content
+#     blocks export, malformed export-log content blocks export-log writes, and
+#     malformed setup content displays an error with testing forced off.
 #
 # Configuration Storage:
 #   Tool setup is stored in:
@@ -108,7 +113,7 @@ import datetime
 
 model.Title = 'QBO Batch Export Tool'
 
-SCRIPT_VERSION = "2.3.2"
+SCRIPT_VERSION = "2.3.3"
 SCRIPT_LAST_UPDATED = "2026-06-22"
 
 CONFIG_CONTENT_NAME = "TPxi_QBOBatchExportTool_Config"
@@ -281,7 +286,47 @@ def load_export_log():
     return load_json_content(EXPORT_LOG_CONTENT_NAME)
 
 def save_export_log(log_obj):
+    read_json_content(EXPORT_LOG_CONTENT_NAME, dict)
     save_json_content(EXPORT_LOG_CONTENT_NAME, log_obj)
+
+def load_required_mapping_content():
+    mapping_names = [
+        FUND_MAPPING_CONTENT_NAME,
+        ACCOUNT_MAPPING_CONTENT_NAME,
+        BANK_MAPPING_CONTENT_NAME,
+        MERCHANT_FEE_MAPPING_CONTENT_NAME
+    ]
+
+    content_by_name = {}
+    errors = []
+
+    for name in mapping_names:
+        try:
+            obj = read_json_content(name, dict)
+            if obj is None:
+                errors.append(
+                    "Required mapping content is missing: {0}.".format(name)
+                )
+            else:
+                content_by_name[name] = obj
+        except Exception as e:
+            errors.append(str(e))
+
+    return content_by_name, errors
+
+def load_export_prerequisites():
+    errors = []
+
+    try:
+        export_log = load_export_log()
+    except Exception as e:
+        export_log = {}
+        errors.append(str(e))
+
+    mapping_content, mapping_errors = load_required_mapping_content()
+    errors.extend(mapping_errors)
+
+    return export_log, mapping_content, errors
 
 
 # =============================================================================
@@ -289,8 +334,15 @@ def save_export_log(log_obj):
 # =============================================================================
 
 def load_tool_config():
-    cfg = load_json_content(CONFIG_CONTENT_NAME)
-    if not isinstance(cfg, dict):
+    error = ""
+
+    try:
+        cfg = read_json_content(CONFIG_CONTENT_NAME, dict)
+    except Exception as e:
+        cfg = None
+        error = str(e)
+
+    if cfg is None:
         cfg = {}
 
     enable_clear = cfg.get(
@@ -311,12 +363,19 @@ def load_tool_config():
     if last_paper < 1:
         last_paper = DEFAULT_CONFIG["last_paper_batch_id"]
 
-    return {
+    loaded = {
         "enable_clear_export_flag": enable_clear,
         "last_paper_batch_id": last_paper
     }
 
+    if error:
+        loaded["enable_clear_export_flag"] = False
+
+    return loaded, error
+
 def save_tool_config(enable_clear_export_flag, last_paper_batch_id):
+    read_json_content(CONFIG_CONTENT_NAME, dict)
+
     last_paper = to_int(last_paper_batch_id, 0)
 
     if last_paper < 1:
@@ -330,7 +389,7 @@ def save_tool_config(enable_clear_export_flag, last_paper_batch_id):
     save_json_content(CONFIG_CONTENT_NAME, cfg)
     return cfg
 
-TOOL_CONFIG = load_tool_config()
+TOOL_CONFIG, TOOL_CONFIG_ERROR = load_tool_config()
 ENABLE_CLEAR_EXPORT_FLAG = TOOL_CONFIG["enable_clear_export_flag"]
 LAST_PAPER_BATCH_ID = TOOL_CONFIG["last_paper_batch_id"]
 MIN_EXPORTABLE_BATCH_ID = LAST_PAPER_BATCH_ID + 1
@@ -540,8 +599,7 @@ def is_total_row(fund_text):
     fund_text = str(fund_text or "").strip().lower()
     return fund_text == "" or fund_text == "total"
 
-def load_merchant_fee_mapping():
-    mappings = load_json_content(MERCHANT_FEE_MAPPING_CONTENT_NAME)
+def load_merchant_fee_mapping(mappings):
     entry = mappings.get(MERCHANT_FEE_FUND_ID, {})
 
     account_name = ""
@@ -587,19 +645,18 @@ def build_description(journal_no, fund_name):
 # Export Eligibility / Validation
 # =============================================================================
 
-def get_exported_batch_ids(cleanlist):
+def get_exported_batch_ids(cleanlist, export_log):
     batch_ids = parse_batch_ids(cleanlist)
-    log_obj = load_export_log()
     already_exported = []
 
     for bid in batch_ids:
-        info = log_obj.get(bid, {})
+        info = export_log.get(bid, {})
         if isinstance(info, dict) and str(info.get("exported_on", "")).strip():
             already_exported.append(bid)
 
     return already_exported
 
-def validate_selected_batches(cleanlist):
+def validate_selected_batches(cleanlist, export_log):
     errors = []
     batch_ids = parse_batch_ids(cleanlist)
 
@@ -615,7 +672,7 @@ def validate_selected_batches(cleanlist):
     if paper_ids:
         errors.append("These selected batches are historical/paper batches and cannot be exported: " + ", ".join(paper_ids))
 
-    already_exported = get_exported_batch_ids(cleanlist)
+    already_exported = get_exported_batch_ids(cleanlist, export_log)
     if already_exported:
         errors.append("These selected batches are already flagged as exported: " + ", ".join(already_exported))
 
@@ -710,14 +767,16 @@ def validate_journal_rows(journal_rows):
 # QBO Export Builder
 # =============================================================================
 
-def build_journal_rows(cleanlist):
+def build_journal_rows(cleanlist, mapping_content):
     summary_rows = get_batch_summary(cleanlist)
     detail_rows = get_batch_detail(cleanlist)
 
-    fund_mappings = load_json_content(FUND_MAPPING_CONTENT_NAME)
-    acct_mappings = load_json_content(ACCOUNT_MAPPING_CONTENT_NAME)
-    bank_mappings = load_json_content(BANK_MAPPING_CONTENT_NAME)
-    merchant_fee_account, merchant_fee_class = load_merchant_fee_mapping()
+    fund_mappings = mapping_content[FUND_MAPPING_CONTENT_NAME]
+    acct_mappings = mapping_content[ACCOUNT_MAPPING_CONTENT_NAME]
+    bank_mappings = mapping_content[BANK_MAPPING_CONTENT_NAME]
+    merchant_fee_account, merchant_fee_class = load_merchant_fee_mapping(
+        mapping_content[MERCHANT_FEE_MAPPING_CONTENT_NAME]
+    )
 
     batch_lookup = {}
     for b in summary_rows:
@@ -887,9 +946,8 @@ def get_export_filename(cleanlist):
 # Export Log Updates
 # =============================================================================
 
-def mark_batches_exported(cleanlist):
+def mark_batches_exported(cleanlist, log_obj):
     batch_ids = parse_batch_ids(cleanlist)
-    log_obj = load_export_log()
 
     exported_on = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     exported_by = ""
@@ -984,6 +1042,9 @@ action = str(Data.action).strip() if is_post and hasattr(Data, "action") else ""
 
 if action == "save_setup":
     try:
+        if TOOL_CONFIG_ERROR:
+            raise Exception(TOOL_CONFIG_ERROR + " Setup was not saved.")
+
         enable_raw = str(Data.enable_clear_export_flag).strip() if hasattr(Data, "enable_clear_export_flag") else "0"
         last_paper_raw = str(Data.last_paper_batch_id).strip() if hasattr(Data, "last_paper_batch_id") else ""
 
@@ -1015,44 +1076,55 @@ if action == "save_setup":
 # -----------------------------------------------------------------------------
 
 elif action == "clear_export_flags":
-    if not ENABLE_CLEAR_EXPORT_FLAG:
+    if TOOL_CONFIG_ERROR:
+        print json.dumps({
+            "success": False,
+            "message": TOOL_CONFIG_ERROR + " Testing remains disabled and export flags cannot be changed."
+        })
+    elif not ENABLE_CLEAR_EXPORT_FLAG:
         print json.dumps({
             "success": False,
             "message": "Clear Export Flag is disabled in Setup."
         })
     else:
-        raw = str(Data.batchids).strip() if hasattr(Data, "batchids") else ""
-        cleanlist = Disinfect(raw)
-        batch_ids = parse_batch_ids(cleanlist)
+        try:
+            raw = str(Data.batchids).strip() if hasattr(Data, "batchids") else ""
+            cleanlist = Disinfect(raw)
+            batch_ids = parse_batch_ids(cleanlist)
 
-        log_obj = load_export_log()
-        cleared = 0
-        skipped_paper = 0
-        not_found = 0
+            log_obj = load_export_log()
+            cleared = 0
+            skipped_paper = 0
+            not_found = 0
 
-        for bid in batch_ids:
-            if is_paper_batch_id(bid):
-                skipped_paper += 1
-                continue
+            for bid in batch_ids:
+                if is_paper_batch_id(bid):
+                    skipped_paper += 1
+                    continue
 
-            if bid in log_obj:
-                del log_obj[bid]
-                cleared += 1
-            else:
-                not_found += 1
+                if bid in log_obj:
+                    del log_obj[bid]
+                    cleared += 1
+                else:
+                    not_found += 1
 
-        save_export_log(log_obj)
+            save_export_log(log_obj)
 
-        msg = "Cleared export flag for {0} batch(es).".format(cleared)
-        if skipped_paper:
-            msg += " Skipped {0} paper batch(es).".format(skipped_paper)
-        if not_found:
-            msg += " {0} selected batch(es) did not have an export flag.".format(not_found)
+            msg = "Cleared export flag for {0} batch(es).".format(cleared)
+            if skipped_paper:
+                msg += " Skipped {0} paper batch(es).".format(skipped_paper)
+            if not_found:
+                msg += " {0} selected batch(es) did not have an export flag.".format(not_found)
 
-        print json.dumps({
-            "success": True,
-            "message": msg
-        })
+            print json.dumps({
+                "success": True,
+                "message": msg
+            })
+        except Exception as e:
+            print json.dumps({
+                "success": False,
+                "message": str(e)
+            })
 
 
 # -----------------------------------------------------------------------------
@@ -1064,23 +1136,28 @@ elif action == "export_selected":
     cleanlist = Disinfect(raw)
 
     try:
-        batch_errors = validate_selected_batches(cleanlist)
+        export_log, mapping_content, content_errors = load_export_prerequisites()
 
-        if batch_errors:
-            render_error_page("Export blocked", batch_errors)
+        if content_errors:
+            render_error_page("Export blocked", content_errors)
         else:
-            journal_rows = build_journal_rows(cleanlist)
-            row_errors = validate_journal_rows(journal_rows)
+            batch_errors = validate_selected_batches(cleanlist, export_log)
 
-            if row_errors:
-                render_error_page("Export validation failed", row_errors)
+            if batch_errors:
+                render_error_page("Export blocked", batch_errors)
             else:
-                csv_text = build_csv(journal_rows)
-                export_filename = get_export_filename(cleanlist)
+                journal_rows = build_journal_rows(cleanlist, mapping_content)
+                row_errors = validate_journal_rows(journal_rows)
 
-                mark_batches_exported(cleanlist)
+                if row_errors:
+                    render_error_page("Export validation failed", row_errors)
+                else:
+                    csv_text = build_csv(journal_rows)
+                    export_filename = get_export_filename(cleanlist)
 
-                render_csv_download(csv_text, export_filename)
+                    mark_batches_exported(cleanlist, export_log)
+
+                    render_csv_download(csv_text, export_filename)
 
     except Exception as e:
         render_error_page("Script error", str(e))
@@ -1093,7 +1170,14 @@ elif action == "export_selected":
 else:
     church_name = get_church_name()
     batches = get_recent_batches()
-    export_log = load_export_log()
+    export_log, mapping_content, export_content_errors = load_export_prerequisites()
+
+    system_errors = []
+    if TOOL_CONFIG_ERROR:
+        system_errors.append(
+            TOOL_CONFIG_ERROR + " Testing remains disabled and Setup cannot be saved until this record is repaired."
+        )
+    system_errors.extend(export_content_errors)
 
     status_values = {}
     rows_html = []
@@ -1243,6 +1327,19 @@ else:
         clear_button_html = '''
             <button type="button" class="qbo-btn qbo-btn-warning" onclick="clearExportFlags()">Clear Export Flag</button>
         '''
+
+    system_alert_html = ""
+    if system_errors:
+        alert_items = []
+        for error in system_errors:
+            alert_items.append("<li>{0}</li>".format(h(error)))
+
+        system_alert_html = '''
+            <div class="qbo-alert">
+                <strong>Protection notice</strong>
+                <ul style="margin:6px 0 0 20px;padding:0">{0}</ul>
+            </div>
+        '''.format("".join(alert_items))
 
     model.Form = '''
     <div class="qbo-wrap" style="max-width:1800px;margin:20px auto;font-family:Segoe UI,Arial,sans-serif">
@@ -1400,6 +1497,15 @@ else:
                 font-size:13px;
                 margin-bottom:16px;
             }}
+            .qbo-alert {{
+                background:#fff3cd;
+                border:1px solid #e6cf87;
+                border-radius:6px;
+                color:#664d03;
+                padding:10px 12px;
+                margin-bottom:14px;
+                font-size:13px;
+            }}
         </style>
 
         <div style="text-align:center;margin-bottom:16px">
@@ -1407,6 +1513,8 @@ else:
             <h3 style="margin:6px 0 0 0">QBO Batch Export Tool</h3>
             <div class="muted" style="margin-top:6px">Version {1} &mdash; Updated {2}</div>
         </div>
+
+        {10}
 
         <div class="qbo-tabs">
             <button type="button" id="tabExport" class="qbo-tab active" onclick="showTab('export')">Export Batches</button>
@@ -1538,7 +1646,8 @@ else:
         h(str(LAST_PAPER_BATCH_ID)),
         clear_button_html,
         "Yes" if ENABLE_CLEAR_EXPORT_FLAG else "No",
-        setup_clear_checked
+        setup_clear_checked,
+        system_alert_html
     )
 
     model.Script = '''

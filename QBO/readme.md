@@ -9,7 +9,7 @@ This project stores TouchPoint Python scripts used to maintain QuickBooks Online
   - Last updated in script header: `2026-06-22`
   - Source file: `src/QuickBooksAccountTranslations.py`
 - Tool: `QBOBatchExportTool`
-  - Version: `2.3.2`
+  - Version: `2.3.3`
   - Last updated in script: `2026-06-22`
   - Source file: `src/QBOBatchExportTool.py`
 
@@ -31,6 +31,10 @@ This project stores TouchPoint Python scripts used to maintain QuickBooks Online
 - Managing setup values from a TouchPoint Setup tab
 
 Normal exports are restricted to batches dated before the current month. The setup testing flag, `enable_clear_export_flag`, bypasses that month restriction for testing.
+
+The exporter fails closed when its Special Content dependencies are unsafe:
+malformed setup keeps testing disabled, missing or malformed mappings block
+export, and malformed export-log content blocks export-log changes.
 
 ## TouchPoint Content Dependencies
 

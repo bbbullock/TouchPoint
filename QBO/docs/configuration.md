@@ -19,8 +19,9 @@ Example:
 
 If the record is missing or blank, the script uses and displays these same
 defaults, so testing behavior remains disabled. Invalid JSON or a valid value
-that is not a JSON object raises an error naming this Special Content record
-without exposing its stored value. `last_paper_batch_id` must be a whole number
+that is not a JSON object displays an error naming this Special Content record
+without exposing its stored value. Testing remains disabled, and Setup cannot
+overwrite the malformed record. `last_paper_batch_id` must be a whole number
 greater than zero.
 
 When `enable_clear_export_flag` is `true`, the tool allows testing behavior:
@@ -40,8 +41,10 @@ These mapping records are maintained by `src/QuickBooksAccountTranslations.py` a
 Each mapping record below must be a JSON object. Invalid JSON and valid JSON
 with another top-level type raise a record-specific error without exposing the
 stored value. The exporter treats missing or blank mapping content as an empty
-object; the translations tool initializes its documented defaults only for
-missing or blank content.
+object only for general reads; export prerequisite validation treats every
+missing or blank mapping record as required content and blocks the export. The
+translations tool initializes its documented defaults only for missing or
+blank content.
 
 ### Fund mappings
 
@@ -203,7 +206,11 @@ Expected shape:
 ```
 
 The export log must be a JSON object. Invalid JSON and other top-level types
-raise an error rather than being treated as an empty log.
+block exports and Clear Export Flag operations rather than being treated as an
+empty log. A missing or blank export log is treated as an empty object and may
+be created by the next successful export. Before either setup or export-log
+content is saved, the current record is read again; malformed content is never
+overwritten by these save operations.
 
 The script writes the export-log entry immediately before rendering the browser
 download response. If the download does not complete, verify that no QBO import

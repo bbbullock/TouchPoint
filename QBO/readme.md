@@ -5,11 +5,11 @@ This project stores TouchPoint Python scripts used to maintain QuickBooks Online
 ## Current Tools
 
 - Tool: `QuickBooksAccountTranslations`
-  - Version: `1.6.0`
-  - Last updated in script header: `2026-05-04`
+  - Version: `1.6.1`
+  - Last updated in script header: `2026-06-22`
   - Source file: `src/QuickBooksAccountTranslations.py`
 - Tool: `QBOBatchExportTool`
-  - Version: `2.3.1`
+  - Version: `2.3.2`
   - Last updated in script: `2026-06-22`
   - Source file: `src/QBOBatchExportTool.py`
 

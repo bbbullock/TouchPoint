@@ -10,9 +10,9 @@ TouchPoint script metadata from the pasted source:
 
 ```text
 Tool: QuickBooks Account Translations
-Version: 1.6.0
-Header last updated: 2026-05-04
-SCRIPT_LAST_UPDATED: 2026-05-04
+Version: 1.6.1
+Header last updated: 2026-06-22
+SCRIPT_LAST_UPDATED: 2026-06-22
 ```
 
 ## Purpose
@@ -56,10 +56,14 @@ Fund, account-code, and merchant-fee configuration records use this shape:
 ```
 
 For fund, account-code, and merchant-fee configuration, the script writes this
-default when the record is absent, invalid JSON, or lacks usable columns.
+default when the record is missing or blank, or lacks usable columns.
 `TPxi_FinanceExport_BankConfig` uses `{"columns": []}` because the bank grid
 stores only `bank_name`; the script writes that default when the record is
-absent or invalid JSON.
+missing or blank.
+
+Invalid JSON and valid JSON with the wrong top-level type raise an error naming
+the affected Special Content record. The script does not include the stored
+value in the error and does not replace malformed content with defaults.
 
 The default bank batch types are `Online`, `Loose Cash`, `Loose Checks`, and
 `Stock`. The default merchant-fee mapping is FundId `6050` to account

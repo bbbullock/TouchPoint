@@ -5,8 +5,8 @@ import datetime
 
 # =============================================================================
 # QuickBooks Account Translations
-# Version: 1.6.0
-# Last Updated: 2026-05-04
+# Version: 1.6.1
+# Last Updated: 2026-06-22
 #
 # Purpose:
 #   Standalone TouchPoint tool for maintaining QuickBooks account translation
@@ -32,6 +32,11 @@ import datetime
 #   - JSON import/export per active tab
 #   - User-managed Bank Batch Type list
 #
+# v1.6.1 Change:
+#   - Special Content JSON reading now distinguishes missing content from
+#     malformed JSON and wrong top-level types. Malformed content raises a
+#     record-specific error without exposing its stored value.
+#
 # Storage:
 #   - TPxi_FinanceExport_Mappings
 #   - TPxi_FinanceExport_Config
@@ -44,8 +49,8 @@ import datetime
 #   - TPxi_FinanceExport_MerchantFeeConfig
 # =============================================================================
 
-SCRIPT_VERSION = "1.6.0"
-SCRIPT_LAST_UPDATED = "2026-05-04"
+SCRIPT_VERSION = "1.6.1"
+SCRIPT_LAST_UPDATED = "2026-06-22"
 
 FUND_MAPPING_CONTENT_NAME = "TPxi_FinanceExport_Mappings"
 FUND_CONFIG_CONTENT_NAME = "TPxi_FinanceExport_Config"
@@ -90,6 +95,36 @@ ACCOUNT_CODE_LOAD_ERROR = ""
 # Helpers
 # =============================================================================
 
+def read_json_content(name, expected_type):
+    try:
+        content = model.TextContent(name)
+    except:
+        raise Exception("Unable to read Special Content '{0}'.".format(name))
+
+    if content is None or not str(content).strip():
+        return None
+
+    try:
+        value = json.loads(content)
+    except:
+        raise Exception("Special Content '{0}' contains invalid JSON.".format(name))
+
+    if not isinstance(value, expected_type):
+        expected_name = "value"
+        if expected_type is dict:
+            expected_name = "object"
+        elif expected_type is list:
+            expected_name = "array"
+
+        raise Exception(
+            "Special Content '{0}' must contain a JSON {1}.".format(
+                name,
+                expected_name
+            )
+        )
+
+    return value
+
 def get_map_type():
     if model.HttpMethod == "post" and hasattr(Data, "map_type"):
         mt = str(Data.map_type).strip().lower()
@@ -113,17 +148,12 @@ def get_default_mappings(map_type):
 
 def load_config(map_type):
     mapping_name, config_name = get_storage_names(map_type)
-    try:
-        content = model.TextContent(config_name)
-        if content:
-            cfg = json.loads(content)
-            if isinstance(cfg, dict):
-                if map_type == "bank":
-                    return cfg
-                if cfg.get("columns"):
-                    return cfg
-    except:
-        pass
+    cfg = read_json_content(config_name, dict)
+    if cfg is not None:
+        if map_type == "bank":
+            return cfg
+        if cfg.get("columns"):
+            return cfg
 
     if map_type == "bank":
         cfg = {"columns": []}
@@ -139,14 +169,9 @@ def save_config(map_type, cfg):
 
 def load_mappings(map_type):
     mapping_name, config_name = get_storage_names(map_type)
-    try:
-        content = model.TextContent(mapping_name)
-        if content:
-            mappings = json.loads(content)
-            if isinstance(mappings, dict):
-                return mappings
-    except:
-        pass
+    mappings = read_json_content(mapping_name, dict)
+    if mappings is not None:
+        return mappings
 
     defaults = get_default_mappings(map_type)
     save_mappings(map_type, defaults)
@@ -162,22 +187,17 @@ def normalize_batch_type_option(value):
     return str(value).strip()
 
 def load_bank_batch_type_options():
-    try:
-        content = model.TextContent(BANK_BATCH_TYPE_OPTIONS_CONTENT_NAME)
-        if content:
-            options = json.loads(content)
-            if isinstance(options, list):
-                cleaned = []
-                seen = {}
-                for item in options:
-                    val = normalize_batch_type_option(item)
-                    if val and val not in seen:
-                        seen[val] = True
-                        cleaned.append(val)
-                if cleaned:
-                    return cleaned
-    except:
-        pass
+    options = read_json_content(BANK_BATCH_TYPE_OPTIONS_CONTENT_NAME, list)
+    if options is not None:
+        cleaned = []
+        seen = {}
+        for item in options:
+            val = normalize_batch_type_option(item)
+            if val and val not in seen:
+                seen[val] = True
+                cleaned.append(val)
+        if cleaned:
+            return cleaned
 
     save_bank_batch_type_options(DEFAULT_BANK_BATCH_TYPE_OPTIONS)
     return list(DEFAULT_BANK_BATCH_TYPE_OPTIONS)

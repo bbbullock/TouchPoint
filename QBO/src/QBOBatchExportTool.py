@@ -2,7 +2,7 @@
 
 # =============================================================================
 # QBOBatchExportTool
-# Version: 2.3.1
+# Version: 2.3.2
 # Last Updated: 2026-06-22
 #
 # Purpose:
@@ -40,6 +40,11 @@
 # Major v2.3.1 Change:
 #   - Clear Export Flag testing now defaults to disabled when tool configuration
 #     is missing, malformed, or omits the setting.
+#
+# Major v2.3.2 Change:
+#   - Special Content JSON reading now distinguishes missing content from
+#     malformed JSON and wrong top-level types. Malformed content raises a
+#     record-specific error without exposing its stored value.
 #
 # Configuration Storage:
 #   Tool setup is stored in:
@@ -103,7 +108,7 @@ import datetime
 
 model.Title = 'QBO Batch Export Tool'
 
-SCRIPT_VERSION = "2.3.1"
+SCRIPT_VERSION = "2.3.2"
 SCRIPT_LAST_UPDATED = "2026-06-22"
 
 CONFIG_CONTENT_NAME = "TPxi_QBOBatchExportTool_Config"
@@ -235,16 +240,39 @@ def row_num(row, names, default=0):
 # JSON Content Helpers
 # =============================================================================
 
-def load_json_content(name):
+def read_json_content(name, expected_type):
     try:
-        txt = model.TextContent(name)
-        if txt:
-            obj = json.loads(txt)
-            if isinstance(obj, dict):
-                return obj
+        content = model.TextContent(name)
     except:
-        pass
-    return {}
+        raise Exception("Unable to read Special Content '{0}'.".format(name))
+
+    if content is None or not str(content).strip():
+        return None
+
+    try:
+        value = json.loads(content)
+    except:
+        raise Exception("Special Content '{0}' contains invalid JSON.".format(name))
+
+    if not isinstance(value, expected_type):
+        expected_name = "value"
+        if expected_type is dict:
+            expected_name = "object"
+        elif expected_type is list:
+            expected_name = "array"
+
+        raise Exception(
+            "Special Content '{0}' must contain a JSON {1}.".format(
+                name,
+                expected_name
+            )
+        )
+
+    return value
+
+def load_json_content(name):
+    obj = read_json_content(name, dict)
+    return obj if obj is not None else {}
 
 def save_json_content(name, obj):
     model.WriteContentText(name, json.dumps(obj, indent=2), "")

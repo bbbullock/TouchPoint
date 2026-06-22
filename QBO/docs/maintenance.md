@@ -81,10 +81,11 @@ Use this checklist for changes to either active script.
 
 - `legacy/QBOBatchExportTool_root_legacy.py` is the archived root-level exporter
   at version 2.2.0. It predates the prior-month restriction in active version
-  2.3.0 and the fail-closed testing default in active version 2.3.1.
+  2.3.0, the fail-closed testing default in version 2.3.1, and strict JSON
+  reading in active version 2.3.2.
 - `legacy/Quickbooks_Account_Translations_root_legacy.py` is an archived
-  root-level copy of version 1.6.0 and is currently functionally equivalent to
-  the active translation source.
+  root-level copy of version 1.6.0. Active version 1.6.1 adds strict JSON
+  reading.
 - Legacy files are reference snapshots. Never patch or deploy them as the active
   production source.
 

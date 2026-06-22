@@ -4,8 +4,8 @@ This folder contains older root-level QBO files retained for reference only.
 
 The active/current source versions are:
 
-- `../src/QBOBatchExportTool.py` (version 2.3.1)
-- `../src/QuickBooksAccountTranslations.py` (version 1.6.0)
+- `../src/QBOBatchExportTool.py` (version 2.3.2)
+- `../src/QuickBooksAccountTranslations.py` (version 1.6.1)
 
 Do not edit files in this legacy folder for production use.
 

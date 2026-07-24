@@ -1,0 +1,1606 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activities Display Settings</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --panel-soft: #fbfcfe;
+      --border: #d8e0ea;
+      --text: #102033;
+      --muted: #607086;
+      --blue: #0b5f9e;
+      --green: #56b835;
+      --error: #b91c1c;
+      --warn: #a16207;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      color: var(--blue);
+      font-size: 2rem;
+      line-height: 1.1;
+    }
+    h2 {
+      margin: 0;
+      color: var(--blue);
+      font-size: 1.22rem;
+    }
+    h3 {
+      margin: 0;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .hint {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .actions,
+    .tabs,
+    .image-actions,
+    .card-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    a,
+    button {
+      border: 0;
+      border-radius: 7px;
+      padding: 10px 14px;
+      background: var(--blue);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.95rem;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    button.secondary,
+    a.secondary {
+      background: #e7edf5;
+      color: var(--text);
+    }
+    button.ghost {
+      background: transparent;
+      color: var(--blue);
+      border: 1px solid var(--border);
+    }
+    button.danger {
+      background: #fee2e2;
+      color: var(--error);
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .tabs {
+      margin: 0 0 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-button {
+      border-radius: 7px 7px 0 0;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-bottom: 0;
+    }
+    .tab-button.is-active {
+      background: var(--panel);
+      color: var(--blue);
+      border-color: var(--border);
+    }
+    form,
+    .tab-panel,
+    .section-stack,
+    .image-list {
+      display: grid;
+      gap: 18px;
+    }
+    .tab-panel[hidden] {
+      display: none;
+    }
+    fieldset,
+    .panel,
+    .image-card {
+      margin: 0;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 6px 18px rgba(16, 32, 51, 0.06);
+    }
+    legend {
+      padding: 0 6px;
+      color: var(--blue);
+      font-weight: 900;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 18px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 11px;
+      color: var(--text);
+      background: #ffffff;
+      font: inherit;
+      font-size: 0.98rem;
+    }
+    input[readonly] {
+      color: var(--muted);
+      background: #f1f5f9;
+      cursor: default;
+    }
+    .datetime-button {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 11px;
+      color: var(--text);
+      background: #ffffff;
+      font: inherit;
+      font-size: 0.98rem;
+      font-weight: 800;
+      text-align: left;
+      cursor: pointer;
+    }
+    .datetime-button.is-empty {
+      color: var(--muted);
+    }
+    .datetime-picker {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      background: rgba(16, 32, 51, 0.22);
+    }
+    .datetime-picker[hidden] {
+      display: none;
+    }
+    .datetime-popover {
+      width: min(560px, 94vw);
+      border: 1px solid #9aa8b8;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 18px 48px rgba(16, 32, 51, 0.24);
+      padding: 14px 16px;
+    }
+    .datetime-layout {
+      display: grid;
+      grid-template-columns: minmax(230px, 1fr) minmax(190px, 0.8fr);
+      gap: 18px;
+    }
+    .calendar-header,
+    .calendar-grid,
+    .time-grid,
+    .datetime-footer {
+      display: grid;
+      gap: 6px;
+    }
+    .calendar-header {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .calendar-title {
+      color: #111827;
+      font-size: 0.98rem;
+      font-weight: 900;
+    }
+    .calendar-nav,
+    .calendar-day,
+    .time-option {
+      border-radius: 4px;
+      background: #ffffff;
+      color: #111827;
+      padding: 5px;
+      font-size: 0.86rem;
+      font-weight: 800;
+      text-align: center;
+    }
+    .calendar-nav {
+      border: 0;
+      font-size: 1.15rem;
+      line-height: 1;
+      width: 32px;
+    }
+    .calendar-grid {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+    .weekday,
+    .calendar-day {
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .weekday {
+      color: #111827;
+      font-weight: 900;
+    }
+    .calendar-day {
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .calendar-day.is-muted {
+      color: #7b8491;
+    }
+    .calendar-day.is-selected,
+    .time-option.is-selected {
+      background: #0b74f0;
+      border-color: #005fcc;
+      color: #ffffff;
+    }
+    .time-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-content: start;
+    }
+    .time-column {
+      display: grid;
+      gap: 5px;
+      max-height: 250px;
+      overflow: auto;
+    }
+    .time-option {
+      border: 1px solid transparent;
+      min-height: 32px;
+    }
+    .datetime-footer {
+      grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+      align-items: center;
+      margin-top: 12px;
+    }
+    .datetime-footer .secondary-action {
+      background: transparent;
+      color: #006fd6;
+      padding: 6px 0;
+    }
+    .datetime-footer button {
+      padding: 8px 12px;
+      font-size: 0.88rem;
+    }
+    .datetime-footer .datetime-readout {
+      color: var(--muted);
+      font-weight: 900;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+    input[type="checkbox"] {
+      width: auto;
+      transform: scale(1.2);
+    }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 41px;
+    }
+    .full { grid-column: 1 / -1; }
+    .file-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .image-card {
+      padding: 0;
+      overflow: hidden;
+    }
+    .image-summary {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px 16px;
+      background: var(--panel);
+      color: var(--text);
+      border: 0;
+      text-align: left;
+    }
+    .image-summary:hover {
+      background: var(--panel-soft);
+    }
+    .summary-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 900;
+    }
+    .summary-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 800;
+      margin-top: 4px;
+      white-space: normal;
+    }
+    .summary-side {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
+      text-align: right;
+    }
+    .stop-date-callout {
+      color: var(--error);
+      font-size: 0.9rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: var(--text);
+      background: #e7edf5;
+      font-size: 0.78rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .badge.active { color: #166534; background: #dcfce7; }
+    .badge.upcoming { color: #0b5f9e; background: #dbeafe; }
+    .badge.past { color: #64748b; background: #f1f5f9; }
+    .badge.disabled { color: #991b1b; background: #fee2e2; }
+    .badge.conflict { color: #991b1b; background: #fee2e2; }
+    .image-editor {
+      border-top: 1px solid var(--border);
+      padding: 16px;
+      background: var(--panel-soft);
+    }
+    .conflict-warning {
+      padding: 12px 14px;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      color: var(--error);
+      background: #fff1f2;
+      font-weight: 900;
+    }
+    .empty-state {
+      padding: 18px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      background: var(--panel-soft);
+      font-weight: 800;
+    }
+    .status {
+      min-height: 24px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .status.error { color: var(--error); }
+    .status.ok { color: var(--green); }
+    .status.warn { color: var(--warn); }
+    .pending-upload {
+      color: #0b5f9e;
+      font-weight: 900;
+    }
+    .save-toast {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 120;
+      width: 100%;
+      padding: 18px 28px;
+      border-radius: 0;
+      background: var(--green);
+      color: #ffffff;
+      font-size: 1.05rem;
+      font-weight: 900;
+      text-align: center;
+      box-shadow: 0 12px 30px rgba(16, 32, 51, 0.22);
+      transform: translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 160ms ease, opacity 160ms ease;
+    }
+    .save-toast.is-visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    @media (max-width: 760px) {
+      header,
+      .toolbar,
+      .datetime-layout,
+      .grid,
+      .file-row,
+      .image-summary {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+      .datetime-footer {
+        grid-template-columns: 1fr 1fr;
+      }
+      .datetime-footer .datetime-readout {
+        grid-column: 1 / -1;
+        order: -1;
+      }
+      .actions,
+      .image-actions,
+      .card-actions {
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Activities Display Settings</h1>
+        <p class="hint">Manage stable display settings separately from scheduled announcement images.</p>
+      </div>
+      <div class="actions">
+        <a class="secondary" href="activities-display.html" target="_blank" rel="noopener">Open Display</a>
+        <button type="button" class="secondary" id="reloadButton">Reload</button>
+        <button type="submit" form="settingsForm" id="saveButton">Save Settings</button>
+      </div>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Settings sections">
+      <button class="tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="displayTab" data-tab="displayTab">Display Settings</button>
+      <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="feedsTab" data-tab="feedsTab">Calendar Feeds</button>
+      <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="imagesTab" data-tab="imagesTab">Scheduled Promos</button>
+      <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="overrideTab" data-tab="overrideTab">Full-Screen Override</button>
+    </div>
+
+    <form id="settingsForm">
+      <fieldset>
+        <legend>Access</legend>
+        <div class="grid">
+          <label class="full">
+            Save password
+            <input id="password" type="password" autocomplete="current-password" placeholder="Required to save settings or upload images">
+          </label>
+        </div>
+      </fieldset>
+
+      <section class="tab-panel" id="displayTab" role="tabpanel">
+        <fieldset>
+          <legend>Branding</legend>
+          <div class="grid">
+            <label>
+              Church name
+              <input id="churchName" type="text">
+            </label>
+            <label>
+              Subtitle
+              <input id="churchSubtitle" type="text">
+            </label>
+            <label>
+              Hashtag
+              <input id="hashtag" type="text">
+            </label>
+            <label>
+              Website
+              <input id="website" type="text" placeholder="ilcsp.org">
+            </label>
+            <label>
+              Logo PNG URL
+              <input id="logoUrl" type="text" placeholder="Upload a logo to set this path" readonly>
+            </label>
+            <div class="full file-row">
+              <label>
+                Upload logo PNG
+                <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+              </label>
+              <button type="button" class="secondary" data-upload="logoFile" data-target="logoUrl">Upload Logo</button>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Calendar Display</legend>
+          <div class="grid">
+            <label>
+              Refresh minutes
+              <input id="refreshMinutes" type="number" min="1" max="60" step="1">
+            </label>
+            <label>
+              Page rotation seconds
+              <input id="pageRotationSeconds" type="number" min="5" max="120" step="1">
+            </label>
+            <label>
+              Max events per page
+              <input id="maxEventsPerPage" type="number" min="1" max="20" step="1">
+            </label>
+            <label>
+              Background color
+              <input id="backgroundColorPicker" type="color">
+            </label>
+            <label>
+              Background hex
+              <input id="backgroundColor" type="text" placeholder="#EAF1F7">
+            </label>
+            <label class="check">
+              <input id="rotatePages" type="checkbox">
+              Rotate pages
+            </label>
+            <label class="check">
+              <input id="showFeedName" type="checkbox">
+              Show feed names
+            </label>
+            <label class="check">
+              <input id="showEndTime" type="checkbox">
+              Show end times
+            </label>
+            <label class="check">
+              <input id="hideEventsWithBlankLocation" type="checkbox">
+              Hide events with blank location
+            </label>
+            <label class="check">
+              <input id="loadGeneralCalendarOnly" type="checkbox">
+              Load general calendar only
+            </label>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="tab-panel" id="imagesTab" role="tabpanel" hidden>
+        <div class="panel">
+          <div class="toolbar">
+            <div>
+              <h2>Scheduled Promos</h2>
+              <p class="hint">Banner Images are 1920 x 1080 px. Event Images are 600 x 200 px. Blank dates mean no date limit.</p>
+            </div>
+            <div class="image-actions">
+              <button type="button" id="addBannerButton">Add Banner Image</button>
+              <button type="button" id="addEventButton" class="secondary">Add Event Image</button>
+            </div>
+          </div>
+        </div>
+        <div class="section-stack" id="imageSchedule"></div>
+      </section>
+
+      <section class="tab-panel" id="feedsTab" role="tabpanel" hidden>
+        <div class="panel">
+          <div class="toolbar">
+            <div>
+              <h2>Calendar Feeds</h2>
+              <p class="hint">Add, edit, disable, or delete TouchPoint calendar feed URLs used by the display.</p>
+            </div>
+            <div class="image-actions">
+              <button type="button" id="addFeedButton">Add Calendar Feed</button>
+            </div>
+          </div>
+        </div>
+        <div class="section-stack" id="feedSchedule"></div>
+      </section>
+
+      <section class="tab-panel" id="overrideTab" role="tabpanel" hidden>
+        <div class="panel">
+          <div class="toolbar">
+            <div>
+              <h2>Full-Screen Overrides</h2>
+              <p class="hint">Schedule one or more 1920 x 1080 px override images. Active overrides hide the calendar and promo rail.</p>
+            </div>
+            <div class="image-actions">
+              <button type="button" id="addOverrideButton">Add Override</button>
+            </div>
+          </div>
+        </div>
+        <div class="section-stack" id="overrideSchedule"></div>
+      </section>
+
+      <div class="status" id="status"></div>
+    </form>
+  </main>
+  <div class="save-toast" id="saveToast" role="status" aria-live="polite">Saved</div>
+  <div class="datetime-picker" id="dateTimePicker" hidden>
+    <div class="datetime-popover" role="dialog" aria-modal="true" aria-label="Choose date and time">
+      <div class="datetime-layout">
+        <div>
+          <div class="calendar-header">
+            <div class="calendar-title" id="pickerMonthLabel"></div>
+            <button type="button" class="calendar-nav" id="pickerPrevMonth" aria-label="Previous month">&#8593;</button>
+            <button type="button" class="calendar-nav" id="pickerNextMonth" aria-label="Next month">&#8595;</button>
+          </div>
+          <div class="calendar-grid" id="pickerCalendarGrid"></div>
+        </div>
+        <div class="time-grid">
+          <div class="time-column" id="pickerHourGrid"></div>
+          <div class="time-column" id="pickerMinuteGrid"></div>
+          <div class="time-column" id="pickerPeriodGrid"></div>
+        </div>
+      </div>
+      <div class="datetime-footer">
+        <button type="button" class="secondary-action" id="pickerClear">Clear</button>
+        <button type="button" class="secondary-action" id="pickerToday">Today</button>
+        <div class="datetime-readout" id="pickerReadout"></div>
+        <button type="button" class="secondary" id="pickerCancel">Cancel</button>
+        <button type="button" id="pickerApply">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MAX_PROMO_ITEMS = 7;
+    const MAX_CALENDAR_FEEDS = 30;
+    const state = {
+      bannerImages: [],
+      eventImages: [],
+      overrideImages: [],
+      calendarFeeds: [],
+      expandedKey: ""
+    };
+    const fields = {
+      churchName: document.getElementById("churchName"),
+      churchSubtitle: document.getElementById("churchSubtitle"),
+      hashtag: document.getElementById("hashtag"),
+      website: document.getElementById("website"),
+      logoUrl: document.getElementById("logoUrl"),
+      refreshMinutes: document.getElementById("refreshMinutes"),
+      rotatePages: document.getElementById("rotatePages"),
+      pageRotationSeconds: document.getElementById("pageRotationSeconds"),
+      maxEventsPerPage: document.getElementById("maxEventsPerPage"),
+      backgroundColor: document.getElementById("backgroundColor"),
+      backgroundColorPicker: document.getElementById("backgroundColorPicker"),
+      showFeedName: document.getElementById("showFeedName"),
+      showEndTime: document.getElementById("showEndTime"),
+      hideEventsWithBlankLocation: document.getElementById("hideEventsWithBlankLocation"),
+      loadGeneralCalendarOnly: document.getElementById("loadGeneralCalendarOnly"),
+      imageSchedule: document.getElementById("imageSchedule"),
+      overrideSchedule: document.getElementById("overrideSchedule"),
+      feedSchedule: document.getElementById("feedSchedule")
+    };
+    const statusEl = document.getElementById("status");
+    const passwordEl = document.getElementById("password");
+    const saveToastEl = document.getElementById("saveToast");
+    const pendingUploads = {};
+    let saveToastTimer = null;
+
+    function setStatus(message, kind) {
+      statusEl.textContent = message || "";
+      statusEl.className = "status" + (kind ? " " + kind : "");
+    }
+    function showSaveToast() {
+      if (saveToastTimer) clearTimeout(saveToastTimer);
+      saveToastEl.classList.add("is-visible");
+      saveToastTimer = setTimeout(function () {
+        saveToastEl.classList.remove("is-visible");
+      }, 5000);
+    }
+    function requirePassword(actionName) {
+      if (passwordEl.value) return true;
+      setStatus("Enter the save password before " + actionName + ".", "error");
+      passwordEl.focus();
+      return false;
+    }
+    function emptyPromoItem(type) {
+      return {
+        type: type,
+        enabled: true,
+        title: "",
+        imageUrl: "",
+        fit: "contain",
+        startDate: "",
+        startTime: "",
+        stopDate: "",
+        stopTime: ""
+      };
+    }
+    function normalizePromoItems(items, fallback, type) {
+      const fallbackHasContent = fallback && (fallback.enabled || fallback.title || fallback.imageUrl || fallback.startDate || fallback.startTime || fallback.stopDate || fallback.stopTime);
+      const source = Array.isArray(items) && items.length ? items : (fallbackHasContent ? [fallback] : []);
+      return source.slice(0, MAX_PROMO_ITEMS).map(function (item) {
+        return Object.assign(emptyPromoItem(type), item || {}, { type: type });
+      });
+    }
+    function getItemKey(type, index) {
+      return type + "-" + index;
+    }
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+    function normalizeHexColor(value) {
+      const raw = String(value || "").trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw;
+      if (/^[0-9a-fA-F]{6}$/.test(raw)) return "#" + raw;
+      return "#EAF1F7";
+    }
+    function todayKey() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      return year + "-" + month + "-" + day;
+    }
+    function statusForItem(item) {
+      if (!item.enabled) return "disabled";
+      const now = new Date();
+      const start = scheduleDateTime(item.startDate, item.startTime, "00:01");
+      const stop = scheduleDateTime(item.stopDate, item.stopTime, "23:59");
+      if (start && now < start) return "upcoming";
+      if (stop && now > stop) return "past";
+      return "active";
+    }
+    function statusLabel(status) {
+      if (status === "active") return "Active now";
+      if (status === "upcoming") return "Upcoming";
+      if (status === "past") return "Past";
+      return "Disabled";
+    }
+    function dateLabel(item) {
+      const start = scheduleLabel(item.startDate, item.startTime);
+      const stop = scheduleLabel(item.stopDate, item.stopTime);
+      if (start && stop) return start + " to " + stop;
+      if (start) return "Starts " + start;
+      if (stop) return "Stops " + stop;
+      return "No date limit";
+    }
+    function scheduleDateTime(dateValue, timeValue, defaultTime) {
+      if (!dateValue) return null;
+      return new Date(dateValue + "T" + (timeValue || defaultTime));
+    }
+    function promoWindow(item) {
+      return {
+        start: scheduleDateTime(item.startDate, item.startTime, "00:01") || new Date(-8640000000000000),
+        stop: scheduleDateTime(item.stopDate, item.stopTime, "23:59") || new Date(8640000000000000)
+      };
+    }
+    function scheduleLabel(dateValue, timeValue) {
+      if (!dateValue) return "";
+      return timeValue ? dateValue + " " + timeValue : dateValue;
+    }
+    function dateTimeButtonLabel(dateValue, timeValue) {
+      if (!dateValue) return "No date/time limit";
+      if (!timeValue) return dateValue;
+      return dateValue + " " + formatTime12(timeValue);
+    }
+    function formatTime12(timeValue) {
+      const parts = String(timeValue || "").split(":");
+      let hour = Number(parts[0] || 0);
+      const minute = String(parts[1] || "00").padStart(2, "0");
+      const period = hour >= 12 ? "PM" : "AM";
+      hour = hour % 12 || 12;
+      return hour + ":" + minute + " " + period;
+    }
+    function toDateKey(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return year + "-" + month + "-" + day;
+    }
+    function itemForType(type, index) {
+      const list = type === "banner" ? state.bannerImages : (type === "event" ? state.eventImages : state.overrideImages);
+      return list[index];
+    }
+    const picker = {
+      item: null,
+      type: "",
+      index: -1,
+      boundary: "start",
+      viewDate: new Date(),
+      selectedDate: "",
+      selectedHour: "12",
+      selectedMinute: "00",
+      selectedPeriod: "AM"
+    };
+    function openDateTimePicker(type, index, boundary) {
+      const item = itemForType(type, index);
+      if (!item) return;
+      const dateValue = boundary === "start" ? item.startDate : item.stopDate;
+      const timeValue = boundary === "start" ? item.startTime : item.stopTime;
+      const now = new Date();
+      picker.item = item;
+      picker.type = type;
+      picker.index = index;
+      picker.boundary = boundary;
+      picker.selectedDate = dateValue || toDateKey(now);
+      picker.viewDate = dateValue ? new Date(dateValue + "T00:00") : new Date(now.getFullYear(), now.getMonth(), 1);
+      setPickerTime(timeValue || (boundary === "start" ? "00:01" : "23:59"));
+      document.getElementById("dateTimePicker").hidden = false;
+      renderDateTimePicker();
+    }
+    function setPickerTime(timeValue) {
+      const parts = String(timeValue || "00:00").split(":");
+      let hour24 = Number(parts[0] || 0);
+      picker.selectedMinute = String(parts[1] || "00").padStart(2, "0");
+      picker.selectedPeriod = hour24 >= 12 ? "PM" : "AM";
+      const hour12 = hour24 % 12 || 12;
+      picker.selectedHour = String(hour12).padStart(2, "0");
+    }
+    function pickerTime24() {
+      let hour = Number(picker.selectedHour);
+      if (picker.selectedPeriod === "PM" && hour !== 12) hour += 12;
+      if (picker.selectedPeriod === "AM" && hour === 12) hour = 0;
+      return String(hour).padStart(2, "0") + ":" + picker.selectedMinute;
+    }
+    function renderDateTimePicker() {
+      const monthLabel = document.getElementById("pickerMonthLabel");
+      monthLabel.textContent = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(picker.viewDate);
+      renderPickerCalendar();
+      renderPickerTimeOptions();
+      document.getElementById("pickerReadout").textContent = dateTimeButtonLabel(picker.selectedDate, pickerTime24());
+    }
+    function renderPickerCalendar() {
+      const grid = document.getElementById("pickerCalendarGrid");
+      const year = picker.viewDate.getFullYear();
+      const month = picker.viewDate.getMonth();
+      const first = new Date(year, month, 1);
+      const start = new Date(year, month, 1 - first.getDay());
+      const weekdays = ["S", "M", "T", "W", "T", "F", "S"];
+      let html = weekdays.map(function (day) { return `<div class="weekday">${day}</div>`; }).join("");
+      for (let i = 0; i < 42; i += 1) {
+        const date = new Date(start);
+        date.setDate(start.getDate() + i);
+        const dateKey = toDateKey(date);
+        const classes = [
+          "calendar-day",
+          date.getMonth() === month ? "" : "is-muted",
+          dateKey === picker.selectedDate ? "is-selected" : ""
+        ].filter(Boolean).join(" ");
+        html += `<button type="button" class="${classes}" data-picker-date="${dateKey}">${date.getDate()}</button>`;
+      }
+      grid.innerHTML = html;
+    }
+    function renderPickerTimeOptions() {
+      const hours = Array.from({ length: 12 }, function (_, index) { return String(index + 1).padStart(2, "0"); });
+      const minutes = Array.from({ length: 60 }, function (_, index) { return String(index).padStart(2, "0"); });
+      document.getElementById("pickerHourGrid").innerHTML = hours.map(function (hour) {
+        return `<button type="button" class="time-option ${hour === picker.selectedHour ? "is-selected" : ""}" data-picker-hour="${hour}">${hour}</button>`;
+      }).join("");
+      document.getElementById("pickerMinuteGrid").innerHTML = minutes.map(function (minute) {
+        return `<button type="button" class="time-option ${minute === picker.selectedMinute ? "is-selected" : ""}" data-picker-minute="${minute}">${minute}</button>`;
+      }).join("");
+      document.getElementById("pickerPeriodGrid").innerHTML = ["AM", "PM"].map(function (period) {
+        return `<button type="button" class="time-option ${period === picker.selectedPeriod ? "is-selected" : ""}" data-picker-period="${period}">${period}</button>`;
+      }).join("");
+    }
+    function closeDateTimePicker() {
+      document.getElementById("dateTimePicker").hidden = true;
+      picker.item = null;
+    }
+    function applyDateTimePicker() {
+      if (!picker.item) return;
+      if (picker.boundary === "start") {
+        picker.item.startDate = picker.selectedDate;
+        picker.item.startTime = pickerTime24();
+      } else {
+        picker.item.stopDate = picker.selectedDate;
+        picker.item.stopTime = pickerTime24();
+      }
+      closeDateTimePicker();
+      renderScheduleForType(picker.type);
+    }
+    function clearDateTimePicker() {
+      if (!picker.item) return;
+      if (picker.boundary === "start") {
+        picker.item.startDate = "";
+        picker.item.startTime = "";
+      } else {
+        picker.item.stopDate = "";
+        picker.item.stopTime = "";
+      }
+      closeDateTimePicker();
+      renderScheduleForType(picker.type);
+    }
+    function setPickerToday() {
+      const now = new Date();
+      picker.selectedDate = toDateKey(now);
+      picker.viewDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      renderDateTimePicker();
+    }
+    function displayName(item, index) {
+      if (item.title) return item.title;
+      if (item.imageUrl && item.imageUrl.startsWith("__pending_upload__:")) return pendingUploadLabel(item.imageUrl);
+      if (item.imageUrl) return item.imageUrl.split("/").pop();
+      if (item.type === "override") return "Full-Screen Override " + (index + 1);
+      return item.type === "banner" ? "Banner Image " + (index + 1) : "Event Image " + (index + 1);
+    }
+    function allImageItems() {
+      return state.bannerImages.map(function (item, index) {
+        return { item: item, type: "banner", index: index };
+      }).concat(state.eventImages.map(function (item, index) {
+        return { item: item, type: "event", index: index };
+      }));
+    }
+    function promoConflictMap() {
+      const conflicts = new Map();
+      ["banner", "event", "override"].forEach(function (type) {
+        const list = type === "banner" ? state.bannerImages : (type === "event" ? state.eventImages : state.overrideImages);
+        const activeItems = list.map(function (item, index) {
+          const window = promoWindow(item);
+          return { item: item, index: index, window: window };
+        }).filter(function (entry) {
+          return entry.item.enabled;
+        });
+        activeItems.forEach(function (left, leftPosition) {
+          activeItems.slice(leftPosition + 1).forEach(function (right) {
+            if (left.window.start <= right.window.stop && right.window.start <= left.window.stop) {
+              const leftKey = getItemKey(type, left.index);
+              const rightKey = getItemKey(type, right.index);
+              const typeLabel = type === "banner" ? "Banner Image" : (type === "event" ? "Event Image" : "Full-Screen Override");
+              conflicts.set(leftKey, typeLabel + " " + (left.index + 1) + " overlaps " + typeLabel + " " + (right.index + 1) + ".");
+              conflicts.set(rightKey, typeLabel + " " + (right.index + 1) + " overlaps " + typeLabel + " " + (left.index + 1) + ".");
+            }
+          });
+        });
+      });
+      return conflicts;
+    }
+    function updateSaveAvailability(conflicts) {
+      const conflictCount = conflicts ? conflicts.size : 0;
+      document.getElementById("saveButton").disabled = conflictCount > 0;
+      if (conflictCount > 0) {
+        setStatus("Resolve schedule date/time conflicts before saving.", "error");
+      }
+    }
+    function groupedImageItems() {
+      const groups = { active: [], upcoming: [], past: [], disabled: [] };
+      allImageItems().forEach(function (entry) {
+        groups[statusForItem(entry.item)].push(entry);
+      });
+      return groups;
+    }
+    function renderImageSchedule() {
+      const conflicts = promoConflictMap();
+      const groups = groupedImageItems();
+      const sections = [
+        ["active", "Active Now"],
+        ["upcoming", "Upcoming"],
+        ["disabled", "Disabled / Unscheduled"],
+        ["past", "Past"]
+      ];
+      fields.imageSchedule.innerHTML = sections.map(function (section) {
+        const key = section[0];
+        const title = section[1];
+        const entries = groups[key];
+        if (!entries.length) {
+          return `<section class="panel"><h2>${title}</h2><div class="empty-state">No ${title.toLowerCase()} images.</div></section>`;
+        }
+        return `
+          <section class="panel">
+            <h2>${title}</h2>
+            <div class="image-list">
+              ${entries.map(function (entry) { return renderImageCard(entry, conflicts); }).join("")}
+            </div>
+          </section>
+        `;
+      }).join("");
+      updateSaveAvailability(conflicts);
+    }
+    function renderOverrideSchedule() {
+      const conflicts = promoConflictMap();
+      if (!state.overrideImages.length) {
+        fields.overrideSchedule.innerHTML = `<section class="panel"><div class="empty-state">No full-screen overrides scheduled.</div></section>`;
+        updateSaveAvailability(conflicts);
+        return;
+      }
+      fields.overrideSchedule.innerHTML = `
+        <section class="panel">
+          <div class="image-list">
+            ${state.overrideImages.map(function (item, index) {
+              return renderImageCard({ item: item, type: "override", index: index }, conflicts);
+            }).join("")}
+          </div>
+        </section>
+      `;
+      updateSaveAvailability(conflicts);
+    }
+    function renderImageCard(entry, conflicts) {
+      const item = entry.item;
+      const key = getItemKey(entry.type, entry.index);
+      const isExpanded = state.expandedKey === key;
+      const typeLabel = entry.type === "banner" ? "Banner Image (1920 x 1080 px)" : (entry.type === "event" ? "Event Image (600 x 200 px)" : "Full-Screen Override (1920 x 1080 px)");
+      const status = statusForItem(item);
+      const conflict = conflicts && conflicts.get(key);
+      const stopDate = item.stopDate ? `Stop: ${escapeHtml(scheduleLabel(item.stopDate, item.stopTime))}` : "";
+      return `
+        <article class="image-card">
+          <button class="image-summary" type="button" data-action="toggle-card" data-key="${key}">
+            <div>
+              <div class="summary-title">
+                <span>${escapeHtml(displayName(item, entry.index))}</span>
+                <span class="badge ${status}">${statusLabel(status)}</span>
+                ${conflict ? `<span class="badge conflict">Conflict</span>` : ""}
+              </div>
+              <div class="summary-meta">${typeLabel} · ${dateLabel(item)} · ${item.imageUrl ? escapeHtml(displayImageUrl(item.imageUrl)) : "No image selected"}</div>
+            </div>
+            <div class="summary-side">
+              ${status === "active" && stopDate ? `<span class="stop-date-callout">${stopDate}</span>` : ""}
+              <span>${isExpanded ? "Collapse" : "Edit"}</span>
+            </div>
+          </button>
+          ${isExpanded ? renderImageEditor(entry, conflict) : ""}
+        </article>
+      `;
+    }
+    function renderImageEditor(entry, conflict) {
+      const item = entry.item;
+      const prefix = getItemKey(entry.type, entry.index);
+      const uploadLabel = entry.type === "banner" ? "Upload Banner Image" : (entry.type === "event" ? "Upload Event Image" : "Upload Override Image");
+      const placeholder = entry.type === "banner" ? "assets/uploads/banner.png" : (entry.type === "event" ? "assets/uploads/event.png" : "assets/uploads/full-screen-override.png");
+      return `
+        <div class="image-editor">
+          <div class="grid">
+            ${conflict ? `<div class="full conflict-warning">${escapeHtml(conflict)} Adjust the start/stop date and time.</div>` : ""}
+            <label class="check">
+              <input data-field="enabled" data-type="${entry.type}" data-index="${entry.index}" type="checkbox" ${item.enabled ? "checked" : ""}>
+              Enabled
+            </label>
+            <label>
+              Fit
+              <select data-field="fit" data-type="${entry.type}" data-index="${entry.index}">
+                <option value="contain" ${item.fit !== "cover" ? "selected" : ""}>Contain</option>
+                <option value="cover" ${item.fit === "cover" ? "selected" : ""}>Cover</option>
+              </select>
+            </label>
+            <label>
+              Title
+              <input data-field="title" data-type="${entry.type}" data-index="${entry.index}" type="text" value="${escapeHtml(item.title)}">
+            </label>
+            <label>
+              Start date/time
+              <button class="datetime-button ${item.startDate ? "" : "is-empty"}" type="button" data-action="open-datetime" data-boundary="start" data-type="${entry.type}" data-index="${entry.index}">
+                ${escapeHtml(dateTimeButtonLabel(item.startDate, item.startTime))}
+              </button>
+            </label>
+            <label>
+              Stop date/time
+              <button class="datetime-button ${item.stopDate ? "" : "is-empty"}" type="button" data-action="open-datetime" data-boundary="stop" data-type="${entry.type}" data-index="${entry.index}">
+                ${escapeHtml(dateTimeButtonLabel(item.stopDate, item.stopTime))}
+              </button>
+            </label>
+            <label class="full">
+              Image URL
+              <input id="${prefix}-imageUrl" data-field="imageUrl" data-type="${entry.type}" data-index="${entry.index}" type="text" placeholder="${placeholder}" value="${escapeHtml(displayImageUrl(item.imageUrl))}" readonly>
+            </label>
+            <div class="full file-row">
+              <label>
+                ${uploadLabel}
+                <input id="${prefix}-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+              </label>
+              <button type="button" class="secondary" data-upload="${prefix}-file" data-target="${prefix}-imageUrl">${uploadLabel}</button>
+            </div>
+            <div class="full card-actions">
+              <button type="button" class="ghost" data-action="collapse-card">Done</button>
+              <button type="button" class="danger" data-action="delete-card" data-type="${entry.type}" data-index="${entry.index}">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    function updateImageItemFromInput(input) {
+      const type = input.dataset.type;
+      const index = Number(input.dataset.index);
+      const field = input.dataset.field;
+      if (!type || Number.isNaN(index) || !field) return;
+      const list = type === "banner" ? state.bannerImages : (type === "event" ? state.eventImages : state.overrideImages);
+      const item = list[index];
+      if (!item) return;
+      item[field] = input.type === "checkbox" ? input.checked : input.value;
+    }
+    function addImage(type) {
+      const list = type === "banner" ? state.bannerImages : (type === "event" ? state.eventImages : state.overrideImages);
+      if (list.length >= MAX_PROMO_ITEMS) {
+        const label = type === "banner" ? "Banner" : (type === "event" ? "Event" : "Full-Screen Override");
+        setStatus("You can schedule up to " + MAX_PROMO_ITEMS + " " + label + " Images.", "error");
+        return;
+      }
+      list.push(emptyPromoItem(type));
+      state.expandedKey = getItemKey(type, list.length - 1);
+      if (type === "override") {
+        renderOverrideSchedule();
+      } else {
+        renderImageSchedule();
+      }
+      setStatus((type === "banner" ? "Banner" : (type === "event" ? "Event" : "Full-Screen Override")) + " Image added.");
+    }
+    function deleteImage(type, index) {
+      const list = type === "banner" ? state.bannerImages : (type === "event" ? state.eventImages : state.overrideImages);
+      list.splice(index, 1);
+      state.expandedKey = "";
+      if (type === "override") {
+        renderOverrideSchedule();
+      } else {
+        renderImageSchedule();
+      }
+      setStatus("Image schedule entry removed.");
+    }
+    function renderScheduleForType(type) {
+      if (type === "override") {
+        renderOverrideSchedule();
+      } else {
+        renderImageSchedule();
+      }
+    }
+    function imageItemsForSave(type) {
+      const list = type === "banner" ? state.bannerImages : (type === "event" ? state.eventImages : state.overrideImages);
+      return list.map(function (item) {
+        const saved = {
+          enabled: Boolean(item.enabled),
+          title: String(item.title || "").trim(),
+          imageUrl: String(item.imageUrl || "").trim(),
+          fit: item.fit === "cover" ? "cover" : "contain",
+          startDate: item.startDate || "",
+          startTime: item.startTime || "",
+          stopDate: item.stopDate || "",
+          stopTime: item.stopTime || ""
+        };
+        return saved;
+      }).filter(function (item) {
+        return item.enabled || item.imageUrl || item.startDate || item.startTime || item.stopDate || item.stopTime || item.title;
+      });
+    }
+    function emptyFeedItem() {
+      return {
+        enabled: true,
+        key: "",
+        label: "",
+        url: ""
+      };
+    }
+    function normalizeFeeds(items) {
+      return (Array.isArray(items) ? items : []).slice(0, MAX_CALENDAR_FEEDS).map(function (item) {
+        return Object.assign(emptyFeedItem(), item || {});
+      });
+    }
+    function feedDisplayName(feed, index) {
+      return feed.label || "Calendar Feed " + (index + 1);
+    }
+    function renderFeedSchedule() {
+      const feeds = state.calendarFeeds;
+      if (!feeds.length) {
+        fields.feedSchedule.innerHTML = `<section class="panel"><div class="empty-state">No calendar feeds configured.</div></section>`;
+        return;
+      }
+      fields.feedSchedule.innerHTML = `
+        <section class="panel">
+          <div class="image-list">
+            ${feeds.map(renderFeedCard).join("")}
+          </div>
+        </section>
+      `;
+    }
+    function renderFeedCard(feed, index) {
+      const key = "feed-" + index;
+      const isExpanded = state.expandedKey === key;
+      return `
+        <article class="image-card">
+          <button class="image-summary" type="button" data-action="toggle-feed" data-index="${index}">
+            <div>
+              <div class="summary-title">
+                <span>${escapeHtml(feedDisplayName(feed, index))}</span>
+                <span class="badge ${feed.enabled ? "active" : "disabled"}">${feed.enabled ? "Enabled" : "Disabled"}</span>
+              </div>
+              <div class="summary-meta">${feed.url ? escapeHtml(feed.url) : "No feed URL set"}</div>
+            </div>
+            <div class="summary-side">
+              <span>${isExpanded ? "Collapse" : "Edit"}</span>
+            </div>
+          </button>
+          ${isExpanded ? renderFeedEditor(feed, index) : ""}
+        </article>
+      `;
+    }
+    function renderFeedEditor(feed, index) {
+      return `
+        <div class="image-editor">
+          <div class="grid">
+            <label class="check">
+              <input data-feed-field="enabled" data-index="${index}" type="checkbox" ${feed.enabled ? "checked" : ""}>
+              Enabled
+            </label>
+            <label>
+              Calendar name
+              <input data-feed-field="label" data-index="${index}" type="text" value="${escapeHtml(feed.label)}" placeholder="Immanuel General Calendar">
+            </label>
+            <label class="full">
+              Feed URL
+              <input data-feed-field="url" data-index="${index}" type="url" value="${escapeHtml(feed.url)}" placeholder="https://my.ilcsp.org/.../calendar/...ics">
+            </label>
+            <div class="full card-actions">
+              <button type="button" class="ghost" data-action="collapse-feed">Done</button>
+              <button type="button" class="danger" data-action="delete-feed" data-index="${index}">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    function updateFeedFromInput(input) {
+      const index = Number(input.dataset.index);
+      const field = input.dataset.feedField;
+      if (Number.isNaN(index) || !field) return;
+      const feed = state.calendarFeeds[index];
+      if (!feed) return;
+      feed[field] = input.type === "checkbox" ? input.checked : input.value;
+    }
+    function addFeed() {
+      if (state.calendarFeeds.length >= MAX_CALENDAR_FEEDS) {
+        setStatus("You can configure up to " + MAX_CALENDAR_FEEDS + " calendar feeds.", "error");
+        return;
+      }
+      state.calendarFeeds.push(emptyFeedItem());
+      state.expandedKey = "feed-" + (state.calendarFeeds.length - 1);
+      renderFeedSchedule();
+      setStatus("Calendar feed added.");
+    }
+    function deleteFeed(index) {
+      state.calendarFeeds.splice(index, 1);
+      state.expandedKey = "";
+      renderFeedSchedule();
+      setStatus("Calendar feed removed.");
+    }
+    function feedsForSave() {
+      return state.calendarFeeds.map(function (feed) {
+        return {
+          enabled: Boolean(feed.enabled),
+          key: String(feed.key || "").trim(),
+          label: String(feed.label || "").trim(),
+          url: String(feed.url || "").trim()
+        };
+      }).filter(function (feed) {
+        return feed.label || feed.url;
+      });
+    }
+    function pendingUploadId(value) {
+      const raw = String(value || "");
+      return raw.startsWith("__pending_upload__:") ? raw.split(":", 2)[1] : "";
+    }
+    function pendingUploadLabel(value) {
+      const upload = pendingUploads[pendingUploadId(value)];
+      return upload ? "Pending upload: " + upload.filename : "Pending upload";
+    }
+    function displayImageUrl(value) {
+      return pendingUploadId(value) ? pendingUploadLabel(value) : value;
+    }
+    function collectPendingUploads() {
+      const uploads = {};
+      Object.keys(pendingUploads).forEach(function (uploadId) {
+        uploads[uploadId] = {
+          filename: pendingUploads[uploadId].filename,
+          dataUrl: pendingUploads[uploadId].dataUrl
+        };
+      });
+      return uploads;
+    }
+    function clearPendingUploads() {
+      Object.keys(pendingUploads).forEach(function (uploadId) {
+        delete pendingUploads[uploadId];
+      });
+    }
+
+    async function loadConfig() {
+      setStatus("Loading settings...");
+      const res = await fetch("/api/config", { cache: "no-store" });
+      if (!res.ok) throw new Error("Could not load config");
+      const config = await res.json();
+      fields.churchName.value = config.brand?.churchName || "";
+      fields.churchSubtitle.value = config.brand?.churchSubtitle || "";
+      fields.hashtag.value = config.brand?.hashtag || "";
+      fields.website.value = config.brand?.website || "ilcsp.org";
+      fields.logoUrl.value = config.brand?.logoUrl || "";
+      clearPendingUploads();
+      fields.refreshMinutes.value = config.display?.refreshMinutes ?? 5;
+      fields.rotatePages.checked = Boolean(config.display?.rotatePages);
+      fields.pageRotationSeconds.value = config.display?.pageRotationSeconds ?? 12;
+      fields.maxEventsPerPage.value = config.display?.maxEventsPerPage ?? 10;
+      fields.backgroundColor.value = config.display?.backgroundColor || "#EAF1F7";
+      fields.backgroundColorPicker.value = normalizeHexColor(fields.backgroundColor.value);
+      fields.showFeedName.checked = Boolean(config.display?.showFeedName);
+      fields.showEndTime.checked = Boolean(config.display?.showEndTime);
+      fields.hideEventsWithBlankLocation.checked = Boolean(config.display?.hideEventsWithBlankLocation);
+      fields.loadGeneralCalendarOnly.checked = Boolean(config.display?.loadGeneralCalendarOnly);
+      state.calendarFeeds = normalizeFeeds(config.calendarFeeds);
+      state.bannerImages = normalizePromoItems(config.promotions?.bannerImages, config.promotions?.sidePanel, "banner");
+      state.eventImages = normalizePromoItems(config.promotions?.eventImages, config.promotions?.bottomBanner, "event");
+      state.overrideImages = normalizePromoItems(config.promotions?.fullScreenOverrides, config.promotions?.fullScreenOverride, "override");
+      state.expandedKey = "";
+      renderFeedSchedule();
+      renderImageSchedule();
+      renderOverrideSchedule();
+      setStatus("Settings loaded.", "ok");
+    }
+    function readConfigFromForm() {
+      return {
+        brand: {
+          churchName: fields.churchName.value.trim(),
+          churchSubtitle: fields.churchSubtitle.value.trim(),
+          hashtag: fields.hashtag.value.trim(),
+          website: fields.website.value.trim(),
+          logoUrl: pendingUploads.logoUrl ? "__pending_upload__:logoUrl" : fields.logoUrl.value.trim()
+        },
+        display: {
+          refreshMinutes: Number(fields.refreshMinutes.value),
+          rotatePages: fields.rotatePages.checked,
+          pageRotationSeconds: Number(fields.pageRotationSeconds.value),
+          maxEventsPerPage: Number(fields.maxEventsPerPage.value),
+          backgroundColor: fields.backgroundColor.value.trim(),
+          showFeedName: fields.showFeedName.checked,
+          showEndTime: fields.showEndTime.checked,
+          hideEventsWithBlankLocation: fields.hideEventsWithBlankLocation.checked,
+          loadGeneralCalendarOnly: fields.loadGeneralCalendarOnly.checked
+        },
+        calendarFeeds: feedsForSave(),
+        promotions: {
+          fullScreenOverrides: imageItemsForSave("override"),
+          bannerImages: imageItemsForSave("banner"),
+          eventImages: imageItemsForSave("event")
+        }
+      };
+    }
+    async function saveConfig(event) {
+      event.preventDefault();
+      const conflicts = promoConflictMap();
+      if (conflicts.size) {
+        renderImageSchedule();
+        setStatus("Resolve schedule date/time conflicts before saving.", "error");
+        return;
+      }
+      if (!requirePassword("saving settings")) return;
+      setStatus("Saving settings...");
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Config-Password": passwordEl.value
+        },
+        body: JSON.stringify({
+          config: readConfigFromForm(),
+          uploads: collectPendingUploads()
+        })
+      });
+      const payload = await res.json().catch(function () { return {}; });
+      if (res.status === 401) throw new Error("Invalid save password. For first-run testing, use change-me.");
+      if (!res.ok) throw new Error(payload.error || "Could not save settings");
+      const config = payload.config || readConfigFromForm();
+      fields.logoUrl.value = config.brand?.logoUrl || "";
+      state.calendarFeeds = normalizeFeeds(config.calendarFeeds);
+      state.bannerImages = normalizePromoItems(config.promotions?.bannerImages, null, "banner");
+      state.eventImages = normalizePromoItems(config.promotions?.eventImages, null, "event");
+      state.overrideImages = normalizePromoItems(config.promotions?.fullScreenOverrides, config.promotions?.fullScreenOverride, "override");
+      renderFeedSchedule();
+      renderImageSchedule();
+      renderOverrideSchedule();
+      clearPendingUploads();
+      setStatus("Settings saved.", "ok");
+      showSaveToast();
+    }
+    function fileToDataUrl(file) {
+      return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function () { resolve(reader.result); };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    async function stageUpload(fileInputId, targetInputId) {
+      const fileInput = document.getElementById(fileInputId);
+      const targetInput = document.getElementById(targetInputId);
+      const file = fileInput && fileInput.files && fileInput.files[0];
+      if (!file) throw new Error("Choose a file first");
+      const dataUrl = await fileToDataUrl(file);
+      const uploadId = targetInputId;
+      pendingUploads[uploadId] = { filename: file.name, dataUrl: dataUrl };
+      targetInput.value = "Pending upload: " + file.name;
+      if (targetInput.dataset && targetInput.dataset.type) {
+        const item = itemForType(targetInput.dataset.type, Number(targetInput.dataset.index));
+        if (item) item.imageUrl = "__pending_upload__:" + uploadId;
+        renderScheduleForType(targetInput.dataset.type);
+      }
+      setStatus(file.name + " staged. Click Save Settings to upload and save.", "ok");
+    }
+
+    document.getElementById("settingsForm").addEventListener("submit", function (event) {
+      saveConfig(event).catch(function (error) {
+        setStatus(error.message, "error");
+      });
+    });
+    document.getElementById("reloadButton").addEventListener("click", function () {
+      loadConfig().catch(function (error) {
+        setStatus(error.message, "error");
+      });
+    });
+    document.getElementById("addBannerButton").addEventListener("click", function () {
+      addImage("banner");
+    });
+    document.getElementById("addEventButton").addEventListener("click", function () {
+      addImage("event");
+    });
+    document.getElementById("addFeedButton").addEventListener("click", function () {
+      addFeed();
+    });
+    document.getElementById("addOverrideButton").addEventListener("click", function () {
+      addImage("override");
+    });
+    document.querySelectorAll(".tab-button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        document.querySelectorAll(".tab-button").forEach(function (tab) {
+          tab.classList.toggle("is-active", tab === button);
+          tab.setAttribute("aria-selected", tab === button ? "true" : "false");
+        });
+        document.querySelectorAll(".tab-panel").forEach(function (panel) {
+          panel.hidden = panel.id !== button.dataset.tab;
+        });
+      });
+    });
+    document.addEventListener("input", function (event) {
+      if (event.target && event.target.dataset && event.target.dataset.field) {
+        updateImageItemFromInput(event.target);
+      }
+      if (event.target && event.target.dataset && event.target.dataset.feedField) {
+        updateFeedFromInput(event.target);
+      }
+      if (event.target === fields.backgroundColorPicker) {
+        fields.backgroundColor.value = fields.backgroundColorPicker.value;
+      }
+    });
+    document.addEventListener("change", function (event) {
+      const input = event.target;
+      if (input === fields.backgroundColor) {
+        const color = normalizeHexColor(fields.backgroundColor.value);
+        fields.backgroundColor.value = color;
+        fields.backgroundColorPicker.value = color;
+      }
+      if (input && input.dataset && input.dataset.field) {
+        updateImageItemFromInput(input);
+        if (input.dataset.type) renderScheduleForType(input.dataset.type);
+      }
+      if (input && input.dataset && input.dataset.feedField) {
+        updateFeedFromInput(input);
+        renderFeedSchedule();
+      }
+      if (input && input.matches("input[type='file']")) {
+        const file = input.files && input.files[0];
+        if (file) {
+          setStatus("Selected " + file.name + ". Click the matching upload button to stage it, then Save Settings.");
+        }
+      }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !document.getElementById("dateTimePicker").hidden) {
+        closeDateTimePicker();
+      }
+    });
+    document.addEventListener("click", function (event) {
+      if (event.target.id === "dateTimePicker") {
+        closeDateTimePicker();
+        return;
+      }
+      const pickerDate = event.target.closest("[data-picker-date]");
+      if (pickerDate) {
+        picker.selectedDate = pickerDate.dataset.pickerDate;
+        renderDateTimePicker();
+        return;
+      }
+      const pickerHour = event.target.closest("[data-picker-hour]");
+      if (pickerHour) {
+        picker.selectedHour = pickerHour.dataset.pickerHour;
+        renderDateTimePicker();
+        return;
+      }
+      const pickerMinute = event.target.closest("[data-picker-minute]");
+      if (pickerMinute) {
+        picker.selectedMinute = pickerMinute.dataset.pickerMinute;
+        renderDateTimePicker();
+        return;
+      }
+      const pickerPeriod = event.target.closest("[data-picker-period]");
+      if (pickerPeriod) {
+        picker.selectedPeriod = pickerPeriod.dataset.pickerPeriod;
+        renderDateTimePicker();
+        return;
+      }
+      if (event.target.closest("#pickerPrevMonth")) {
+        picker.viewDate = new Date(picker.viewDate.getFullYear(), picker.viewDate.getMonth() - 1, 1);
+        renderDateTimePicker();
+        return;
+      }
+      if (event.target.closest("#pickerNextMonth")) {
+        picker.viewDate = new Date(picker.viewDate.getFullYear(), picker.viewDate.getMonth() + 1, 1);
+        renderDateTimePicker();
+        return;
+      }
+      if (event.target.closest("#pickerClear")) {
+        clearDateTimePicker();
+        return;
+      }
+      if (event.target.closest("#pickerToday")) {
+        setPickerToday();
+        return;
+      }
+      if (event.target.closest("#pickerCancel")) {
+        closeDateTimePicker();
+        return;
+      }
+      if (event.target.closest("#pickerApply")) {
+        applyDateTimePicker();
+        return;
+      }
+      const actionTarget = event.target.closest("[data-action]");
+      if (actionTarget) {
+        const action = actionTarget.dataset.action;
+        if (action === "open-datetime") {
+          openDateTimePicker(actionTarget.dataset.type, Number(actionTarget.dataset.index), actionTarget.dataset.boundary);
+          return;
+        }
+        if (action === "toggle-card") {
+          state.expandedKey = state.expandedKey === actionTarget.dataset.key ? "" : actionTarget.dataset.key;
+          renderScheduleForType(actionTarget.dataset.key.split("-")[0]);
+        }
+        if (action === "collapse-card") {
+          state.expandedKey = "";
+          renderImageSchedule();
+          renderOverrideSchedule();
+        }
+        if (action === "delete-card") {
+          deleteImage(actionTarget.dataset.type, Number(actionTarget.dataset.index));
+        }
+        if (action === "toggle-feed") {
+          const key = "feed-" + actionTarget.dataset.index;
+          state.expandedKey = state.expandedKey === key ? "" : key;
+          renderFeedSchedule();
+        }
+        if (action === "collapse-feed") {
+          state.expandedKey = "";
+          renderFeedSchedule();
+        }
+        if (action === "delete-feed") {
+          deleteFeed(Number(actionTarget.dataset.index));
+        }
+      }
+      const uploadButton = event.target.closest("[data-upload]");
+      if (uploadButton) {
+        stageUpload(uploadButton.dataset.upload, uploadButton.dataset.target).catch(function (error) {
+          setStatus(error.message, "error");
+        });
+      }
+    });
+    loadConfig().catch(function (error) {
+      setStatus(error.message, "error");
+    });
+  </script>
+</body>
+</html>

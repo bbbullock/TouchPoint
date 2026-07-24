@@ -1,0 +1,126 @@
+{
+  "brand": {
+    "logoUrl": "assets/uploads/Horizontal-2.png",
+    "hashtag": "#DeepeningBelonging",
+    "website": "ilcsp.org",
+    "churchName": "Immanuel",
+    "churchSubtitle": "Lutheran Church"
+  },
+  "display": {
+    "refreshMinutes": 5,
+    "rotatePages": false,
+    "pageRotationSeconds": 12,
+    "maxEventsPerPage": 10,
+    "backgroundColor": "#E6EEF5",
+    "showFeedName": false,
+    "showEndTime": true,
+    "hideEventsWithBlankLocation": false,
+    "loadGeneralCalendarOnly": false
+  },
+  "calendarFeeds": [
+    {
+      "enabled": true,
+      "key": "cantorei-choir",
+      "label": "Cantorei Choir",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Cantorei_Choir_eaa4abb0-81ed-4f16-a6f3-deee4efa4657.ics"
+    },
+    {
+      "enabled": true,
+      "key": "children-ministry",
+      "label": "Children's Ministry",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Children_s_Ministry_11e626c5-b638-4bca-b98b-dbb39251b6a8.ics"
+    },
+    {
+      "enabled": true,
+      "key": "chorister-choir",
+      "label": "Chorister Choir",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Chorister_Choir_fa900251-096a-4731-80f7-8fb697be0c18.ics"
+    },
+    {
+      "enabled": true,
+      "key": "community-groups",
+      "label": "Community Groups",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Community_Groups_1010f0bf-4388-4a64-9bb7-5d181d3d7d6d.ics"
+    },
+    {
+      "enabled": true,
+      "key": "confirmands",
+      "label": "Confirmands",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Confirmands_7f9b4f95-8f11-4326-acad-353b45b97873.ics"
+    },
+    {
+      "enabled": true,
+      "key": "confirmation-7th-8th-graders",
+      "label": "Confirmation - 7th/8th Graders",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Confirmation_-_7th_8th_Graders_64cd96b8-cf5c-4f80-9f67-d6f617aa2a43.ics"
+    },
+    {
+      "enabled": true,
+      "key": "immanuel-general-calendar",
+      "label": "Immanuel General Calendar",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Immanuel_General_Calendar_7687b170-e255-4b36-be9e-6cc013474976.ics"
+    },
+    {
+      "enabled": true,
+      "key": "jubilate-bell-choir",
+      "label": "Jubilate Ringers",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Jubilate_Ringers_b7478e9c-d31e-4eaf-b61f-65767bd23e45.ics"
+    },
+    {
+      "enabled": true,
+      "key": "student-spot",
+      "label": "Student Spot",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Student_Spot_ecac6839-1532-4aca-b820-0c2d58cb86da.ics"
+    },
+    {
+      "enabled": true,
+      "key": "youth-choir",
+      "label": "Youth Choir",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Youth_Choir_c954b239-e780-4d0e-9e90-62d8047c18d9.ics"
+    },
+    {
+      "enabled": true,
+      "key": "youth-ministry",
+      "label": "Youth Ministry",
+      "url": "https://my.ilcsp.org/ilcsp/calendar/Youth_Ministry_d0baa75c-b393-4ed7-91a4-a3528f36ea77.ics"
+    }
+  ],
+  "promotions": {
+    "fullScreenOverrides": [],
+    "fullScreenOverride": {
+      "enabled": false,
+      "title": "",
+      "imageUrl": "",
+      "fit": "contain",
+      "startDate": "",
+      "startTime": "",
+      "stopDate": "",
+      "stopTime": ""
+    },
+    "bannerImages": [],
+    "eventImages": [
+      {
+        "enabled": true,
+        "title": "",
+        "imageUrl": "assets/uploads/Summer-Book-Read-Event.png",
+        "fit": "cover",
+        "startDate": "",
+        "startTime": "",
+        "stopDate": "",
+        "stopTime": ""
+      }
+    ],
+    "sidePanel": {
+      "enabled": false,
+      "title": "",
+      "imageUrl": "",
+      "fit": "contain"
+    },
+    "bottomBanner": {
+      "enabled": true,
+      "title": "",
+      "imageUrl": "assets/uploads/Summer-Book-Read-Event.png",
+      "fit": "cover"
+    }
+  }
+}

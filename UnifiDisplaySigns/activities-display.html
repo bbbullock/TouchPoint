@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="en">
+<head>
+ 
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ 
+ <title>
+  Activities Today
+ </title>
+ <style>
+  :root {
+      --bg: #EAF1F7;
+      --bg-accent-1: rgba(37, 99, 235, 0.10);
+      --bg-accent-2: rgba(207, 161, 42, 0.12);
+      --card: #ffffff;
+      --card-border: #d8e0ea;
+      --text: #0f172a;
+      --text-strong: #003f52;
+      --muted: #475569;
+      --muted-2: #64748b;
+      --accent: #2563eb;
+      --brand-blue: #0b5f9e;
+      --brand-green: #56b835;
+      --brand-dark: #16425f;
+      --error: #b91c1c;
+      --success: #166534;
+      --shadow: rgba(15, 23, 42, 0.16);
+    }
+    * { box-sizing: border-box; }
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      overflow: hidden;
+    }
+    .page {
+      /*
+        Full-width signage block.
+        The page may be embedded inside a narrower website/container, so this
+        breaks the calendar out to the full 16:9 TV viewport width.
+      */
+      height: var(--activities-calendar-height, 100vh);
+      width: 100vw;
+      max-width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      background: var(--bg);
+      padding: 1.7vh 4vw 1.5vh;
+      display: flex;
+      flex-direction: column;
+      gap: 1.15vh;
+      overflow: hidden;
+      position: relative;
+    }
+    .fullscreen-override {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: #ffffff;
+    }
+    .fullscreen-override img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .fullscreen-override.fit-cover img {
+      object-fit: cover;
+    }
+    .page.has-fullscreen-override {
+      padding: 0;
+      gap: 0;
+    }
+    .page.has-fullscreen-override .header,
+    .page.has-fullscreen-override .content {
+      display: none;
+    }
+    .page.has-fullscreen-override .fullscreen-override {
+      display: block;
+    }
+    .header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
+      overflow: visible;
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: clamp(0.95rem, 1.7vh, 1.9rem);
+      min-width: 0;
+      overflow: visible;
+      width: 100%;
+    }
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(0.8rem, 1.1vw, 1.6rem);
+      max-width: min(58vw, 860px);
+      min-width: 0;
+    }
+    .brand-mark {
+      width: clamp(4.1rem, 6.2vw, 7.4rem);
+      height: clamp(4.1rem, 6.2vw, 7.4rem);
+      flex: 0 0 auto;
+    }
+    .brand-mark svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .brand-logo-img {
+      display: none;
+      width: clamp(24rem, 39vw, 47rem);
+      max-height: clamp(7rem, 12vh, 10rem);
+      object-fit: contain;
+    }
+    .brand-lockup.has-logo-image {
+      max-width: min(62vw, 940px);
+    }
+    .brand-lockup.has-logo-image .brand-mark,
+    .brand-lockup.has-logo-image .wordmark {
+      display: none;
+    }
+    .brand-lockup.has-logo-image .brand-logo-img {
+      display: block;
+    }
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .wordmark-name {
+      margin: 0;
+      color: var(--brand-blue);
+      font-size: clamp(3.5rem, 5.8vw, 7rem);
+      line-height: 0.86;
+      font-weight: 900;
+      letter-spacing: -0.035em;
+      overflow: visible;
+      white-space: nowrap;
+    }
+    .wordmark-subtitle {
+      color: var(--brand-green);
+      font-size: clamp(1.15rem, 1.8vw, 2.35rem);
+      line-height: 1;
+      font-weight: 500;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      padding-left: 0.2em;
+      margin-top: 0.2rem;
+    }
+    .brand-hashtag {
+      color: var(--brand-dark);
+      font-size: clamp(1rem, 1.25vw, 1.65rem);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0;
+      white-space: nowrap;
+      margin-top: clamp(0.25rem, 0.75vh, 0.8rem);
+    }
+    .date-block {
+      text-align: left;
+      color: #64748b;
+      font-size: clamp(1.05rem, 1.35vw, 1.9rem);
+      line-height: 1.15;
+      white-space: nowrap;
+      font-weight: 800;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      gap: 1.1rem;
+      align-items: baseline;
+      flex-wrap: wrap;
+      width: 100%;
+      margin-top: 0.15vh;
+    }
+    .clock {
+      color: #64748b;
+      font-size: inherit;
+      margin-top: 0;
+      font-weight: 800;
+    }
+    .content {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 0.8vh;
+      padding-bottom: 0;
+    }
+    .main-layout {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.2vw;
+      overflow: hidden;
+    }
+    .main-layout.has-promo-column {
+      grid-template-columns: minmax(0, 1.36fr) minmax(20rem, 1fr);
+    }
+    .calendar-column {
+      min-height: 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      color: #64748b;
+      font-size: clamp(0.95rem, 1.1vw, 1.45rem);
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .events {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-rows: minmax(85px, auto);
+      align-content: start;
+      gap: 0.7vh 1vw;
+      min-height: 0;
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .main-layout.has-promo-column .events {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.7vh;
+    }
+    .event-card {
+      display: grid;
+      grid-template-columns: minmax(138px, 8vw) minmax(0, 1fr);
+      align-items: center;
+      gap: 1vw;
+      background: var(--card);
+      border: 2px solid var(--card-border);
+      border-left: 0.42vw solid var(--accent);
+      border-radius: 0.55rem;
+      padding: clamp(0.58rem, 0.88vh, 0.95rem) clamp(0.8rem, 1vw, 1.2rem);
+      box-shadow: 0 0.35rem 0.8rem rgba(15, 23, 42, 0.08);
+      min-height: 85px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .event-time {
+      color: #004258;
+      font-size: clamp(1.24rem, 1.58vw, 2.1rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .event-end {
+      display: block;
+      color: #004258;
+      font-size: clamp(0.86rem, 1vw, 1.28rem);
+      font-weight: 800;
+      margin-top: 0.28rem;
+      letter-spacing: 0;
+    }
+    .event-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.36rem;
+      align-items: stretch;
+    }
+    .event-title {
+      color: #004258;
+      font-size: clamp(1.24rem, 1.58vw, 2.1rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.015em;
+      margin: 0;
+      text-align: left;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      white-space: normal;
+    }
+    .event-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.6rem;
+      color: #004258;
+      font-size: clamp(0.92rem, 1.06vw, 1.35rem);
+      font-weight: 800;
+      line-height: 1.15;
+      overflow: hidden;
+      text-align: left;
+      justify-content: flex-start;
+      max-width: none;
+    }
+    .overflow-note {
+      grid-column: 1 / -1;
+      color: #64748b;
+      font-size: clamp(0.88rem, 1vw, 1.25rem);
+      font-weight: 900;
+      line-height: 1.1;
+      padding: 0.2rem 0.3rem;
+    }
+    .event-feed {
+      color: #2563eb;
+      font-weight: 900;
+    }
+    .event-card.is-cancelled {
+      opacity: 0.78;
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      border-left-color: #b91c1c !important;
+    }
+    .event-card.is-cancelled .event-time,
+    .event-card.is-cancelled .event-title,
+    .event-card.is-cancelled .event-meta {
+      color: #64748b;
+    }
+    .event-card.is-cancelled .event-title-text,
+    .event-card.is-cancelled .event-time-main,
+    .event-card.is-cancelled .event-end,
+    .event-card.is-cancelled .event-location {
+      text-decoration: line-through;
+      text-decoration-thickness: 0.12em;
+    }
+    .cancelled-badge {
+      display: inline-block;
+      margin-left: 0.6rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: #fee2e2;
+      color: #991b1b;
+      font-size: clamp(0.65rem, 0.78vw, 1rem);
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      vertical-align: middle;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .empty-state,
+    .error-state {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: #ffffff;
+      border: 2px solid var(--card-border);
+      border-radius: 2rem;
+      padding: 4rem;
+      box-shadow: 0 1.1rem 2.4rem var(--shadow);
+    }
+    .empty-state h2,
+    .error-state h2 {
+      margin: 0 0 1rem;
+      color: var(--text-strong);
+      font-size: clamp(3rem, 5vw, 6rem);
+      line-height: 1;
+      font-weight: 900;
+    }
+    .empty-state p,
+    .error-state p {
+      margin: 0;
+      color: #475569;
+      font-size: clamp(1.4rem, 2vw, 2.8rem);
+      font-weight: 700;
+    }
+    .error-state h2 { color: var(--error); }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      color: #64748b;
+      font-size: clamp(0.8rem, 1vw, 1.25rem);
+      font-weight: 800;
+      min-height: 1.35rem;
+      line-height: 1.1;
+      width: 100%;
+      flex: 0 0 auto;
+    }
+    .refresh-indicator { color: var(--success); }
+    .page-indicator { color: #2563eb; font-weight: 900; }
+    .promo-column {
+      min-height: 0;
+      min-width: 0;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 1vh;
+      justify-content: flex-start;
+      overflow: hidden;
+    }
+    .main-layout.has-promo-column .promo-column {
+      display: flex;
+    }
+    .side-promo {
+      min-height: 0;
+      min-width: 0;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      flex: 0 0 auto;
+      display: none;
+      background: #ffffff;
+      border: 2px solid var(--card-border);
+      border-radius: 1rem;
+      box-shadow: 0 0.55rem 1.15rem rgba(15, 23, 42, 0.11);
+      overflow: hidden;
+      padding: 0.45rem;
+    }
+    .side-promo.is-enabled {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .promo-title {
+      display: none;
+    }
+    .promo-title.has-title {
+      display: none;
+    }
+    .side-promo img {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      border-radius: 0.7rem;
+    }
+    .side-promo.fit-cover img {
+      object-fit: cover;
+    }
+    .bottom-promo {
+      display: none;
+      min-height: 0;
+      width: 100%;
+      aspect-ratio: 3 / 1;
+      background: #ffffff;
+      border: 2px solid var(--card-border);
+      border-radius: 0.65rem;
+      box-shadow: 0 0.45rem 1rem rgba(15, 23, 42, 0.10);
+      overflow: hidden;
+      padding: 0.28rem;
+      flex: 0 0 auto;
+    }
+    .bottom-promo.is-enabled {
+      display: block;
+    }
+    .bottom-promo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      border-radius: 0.45rem;
+      background: #ffffff;
+    }
+    .bottom-promo.fit-cover img {
+      object-fit: cover;
+    }
+    .bottom-promo.fit-contain img {
+      object-fit: contain;
+      background: #ffffff;
+    }
+    @media (max-width: 900px) {
+      .header { grid-template-columns: 1fr; }
+      .brand-lockup { max-width: 92vw; }
+      .brand-logo-img {
+        width: min(82vw, 34rem);
+        max-height: 7rem;
+      }
+      .brand-mark {
+        width: clamp(3.2rem, 12vw, 5rem);
+        height: clamp(3.2rem, 12vw, 5rem);
+      }
+      .wordmark-name { font-size: clamp(2.5rem, 12vw, 4.4rem); }
+      .wordmark-subtitle {
+        font-size: clamp(0.85rem, 3.5vw, 1.4rem);
+        letter-spacing: 0.18em;
+      }
+      .date-block { text-align: left; }
+      .main-layout,
+      .main-layout.has-promo-column { grid-template-columns: 1fr; }
+      .promo-column { display: none !important; }
+      .events { grid-template-columns: 1fr; }
+      .event-card { grid-template-columns: 1fr; }
+      .event-meta {
+        justify-content: flex-start;
+        max-width: none;
+        text-align: left;
+      }
+      .event-time { text-align: left; }
+      .event-title { white-space: normal; }
+    }
+ </style>
+</head>
+<body>
+ <main class="page">
+  <div class="fullscreen-override" id="fullscreenOverride" aria-label="Full-screen override image">
+   <img id="fullscreenOverrideImage" src="" alt="Full-screen override">
+  </div>
+  <header class="header">
+   <div class="brand">
+    <div class="brand-lockup" aria-label="Immanuel Lutheran Church">
+     <img class="brand-logo-img" id="brandLogoImage" src="" alt="Immanuel Lutheran Church">
+     <div class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 120 120" role="img">
+       <path d="M42 10h27v32h30v26H69v42H42V68H14V42h28z" fill="#58ba37"/>
+       <path d="M68 19c12 14 10 30 2 44-8 15-13 25-7 43" fill="none" stroke="#0b5f9e" stroke-width="4.2" stroke-linecap="round"/>
+       <path d="M73 40c11-2 20-8 26-19-12 1-21 7-26 19z" fill="#58ba37" stroke="#f8fafc" stroke-width="2"/>
+       <path d="M61 62c-11 6-18 16-20 31 12-5 19-15 20-31z" fill="#58ba37" stroke="#f8fafc" stroke-width="2"/>
+       <path d="M58 28c-8-9-17-13-29-13 6 11 15 16 29 13z" fill="#58ba37" stroke="#f8fafc" stroke-width="2"/>
+     </svg>
+     </div>
+     <div class="wordmark">
+      <div class="wordmark-name" id="brandChurchName">Immanuel</div>
+      <div class="wordmark-subtitle" id="brandChurchSubtitle">Lutheran Church</div>
+     </div>
+    </div>
+    <div class="brand-hashtag" id="brandHashtag">#DeepeningBelonging</div>
+    <div class="date-block">
+     <span id="displayDate">
+      Loading...
+     </span>
+     <span class="clock" id="clock">
+     </span>
+    </div>
+   </div>
+  </header>
+  <section class="content">
+   <div class="status-row">
+    <div id="eventCount">
+     Loading calendar...
+    </div>
+    <div class="page-indicator" id="pageIndicator">
+    </div>
+   </div>
+   <div class="main-layout" id="mainLayout">
+    <div class="calendar-column">
+     <div class="events" id="events">
+     </div>
+    </div>
+    <aside class="promo-column" id="promoColumn" aria-label="Promotions">
+     <div class="side-promo" id="sidePromo" aria-label="Featured promotion">
+      <div class="promo-title" id="sidePromoTitle">
+      </div>
+      <img id="sidePromoImage" src="" alt="Featured event promotion">
+     </div>
+     <div class="bottom-promo" id="bottomPromo" aria-label="Announcement banner">
+      <img id="bottomPromoImage" src="" alt="Announcement banner">
+     </div>
+    </aside>
+   </div>
+   <footer class="footer">
+    <div id="lastUpdated">
+     Waiting for calendar feed...
+    </div>
+    <div class="refresh-indicator" id="refreshStatus">
+     Auto-refresh enabled
+    </div>
+   </footer>
+  </section>
+ </main>
+ <script>
+  /***********************************************************************
+     * ACTIVITIES TODAY - TOUCHPOINT ICS DISPLAY PAGE
+     *
+     * This version borrows the working feed-loading and ICS-parsing approach
+     * from the existing Immanuel website month-calendar widget.
+     ***********************************************************************/
+    /***********************************************************************
+     * EASY PROMOTION SETTINGS
+     *
+     * Edit only this block when you want to test or change promo graphics.
+     * Leave imageUrl blank or enabled false to hide a promo zone.
+     ***********************************************************************/
+    const PROMOTION_SETTINGS = {
+      fullScreenOverrides: [],
+      fullScreenOverride: {
+        enabled: false,
+        title: "",
+        imageUrl: "",
+        fit: "contain",
+        startDate: "",
+        startTime: "",
+        stopDate: "",
+        stopTime: ""
+      },
+      bannerImages: [],
+      eventImages: [],
+      sidePanel: {
+        enabled: true,
+        title: "",
+        imageUrl: "https://img3.tpsdb.com/public/ilcsp.260513112312.bd324e18492c414a9c211ba027b6d1f1.Elijah_for_calendar.png",
+        fit: "contain" // contain is best for portrait flyers; cover is best for landscape art
+      },
+      bottomBanner: {
+        enabled: false,
+        title: "",
+        imageUrl: "",
+        fit: "cover" // cover is best for wide banners; contain shows the full image
+      }
+    };
+    const FEED_COLORS = {
+      "cantorei-choir": { bg: "#fde68a", text: "#92400e" },
+      "children-ministry": { bg: "#fde68a", text: "#92400e" },
+      "chorister-choir": { bg: "#004258", text: "#E5E7EB" },
+      "community-groups": { bg: "#CFA12A", text: "#1F2937" },
+      "confirmands": { bg: "#FAB60D", text: "#1F2937" },
+      "confirmation-7th-8th-graders": { bg: "#FEE119", text: "#111827" },
+      "immanuel-general-calendar": { bg: "#FFF3B5", text: "#374151" },
+      "jubilate-bell-choir": { bg: "#628D33", text: "#FFFFFF" },
+      "student-spot": { bg: "#82BD41", text: "#0F172A" },
+      "youth-choir": { bg: "#9FD15A", text: "#1F2937" },
+      "youth-ministry": { bg: "#3F8A6A", text: "#FFFFFF" }
+    };
+    const CONFIG = {
+      brand: {
+        logoUrl: "",
+        hashtag: "#DeepeningBelonging",
+        website: "ilcsp.org",
+        churchName: "Immanuel",
+        churchSubtitle: "Lutheran Church"
+      },
+      churchName: "",
+      screenTitle: "",
+      timezone: "America/Chicago",
+      refreshMinutes: 5,
+      rotatePages: true,
+      pageRotationSeconds: 12,
+      maxEventsPerPage: 10,
+      backgroundColor: "#EAF1F7",
+      showFeedName: false,
+      showEndTime: true,
+      hideEventsWithBlankLocation: false,
+      noEventsMessage: "No activities are scheduled for today.",
+      calendarFeeds: [],
+      promotions: PROMOTION_SETTINGS,
+      // SPEED OPTIONS
+      // Set to true to load only the general church calendar feed.
+      // This is much faster if that feed already includes the events you want on signage.
+      loadGeneralCalendarOnly: false,
+      // Stop waiting on a slow feed after this many seconds.
+      feedTimeoutSeconds: 8,
+      // Show results as each feed finishes instead of waiting for every feed first.
+      renderAsFeedsLoad: true,
+      // For recurring weekly events, only expand a small range around today.
+      recurrenceLookBackDays: 7,
+      recurrenceLookAheadDays: 14
+    };
+    let allEvents = [];
+    let rawEventsBuffer = [];
+    let currentPage = 0;
+    let pageTimer = null;
+    let promoCycleComplete = false;
+    const els = {
+      screenTitle: document.getElementById("screenTitle"),
+      displayDate: document.getElementById("displayDate"),
+      clock: document.getElementById("clock"),
+      eventCount: document.getElementById("eventCount"),
+      pageIndicator: document.getElementById("pageIndicator"),
+      events: document.getElementById("events"),
+      lastUpdated: document.getElementById("lastUpdated"),
+      refreshStatus: document.getElementById("refreshStatus")
+    };
+    async function init() {
+      await loadDisplayConfig();
+      applyDisplaySettings();
+      applyBranding();
+      setupPromotions();
+      if (els.screenTitle) els.screenTitle.textContent = CONFIG.screenTitle;
+      updateDateAndClock();
+      setInterval(updateDateAndClock, 1000);
+      loadCalendar();
+      setInterval(loadCalendar, CONFIG.refreshMinutes * 60 * 1000);
+    }
+    async function loadDisplayConfig() {
+      const configUrls = ["/api/config", "config.json"];
+      for (const url of configUrls) {
+        try {
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) continue;
+          const remoteConfig = await res.json();
+          mergeConfig(CONFIG, remoteConfig);
+          if (remoteConfig.display) {
+            mergeConfig(CONFIG, remoteConfig.display);
+          }
+          if (remoteConfig.promotions) {
+            mergeConfig(PROMOTION_SETTINGS, remoteConfig.promotions);
+          }
+          return;
+        } catch (error) {
+          console.warn("Display config not loaded from", url, error);
+        }
+      }
+    }
+    function mergeConfig(target, source) {
+      if (!source || typeof source !== "object" || Array.isArray(source)) return target;
+      Object.keys(source).forEach(function (key) {
+        const value = source[key];
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          if (!target[key] || typeof target[key] !== "object") target[key] = {};
+          mergeConfig(target[key], value);
+        } else {
+          target[key] = value;
+        }
+      });
+      return target;
+    }
+    function applyBranding() {
+      const brand = CONFIG.brand || {};
+      const lockup = document.querySelector(".brand-lockup");
+      const logoImage = document.getElementById("brandLogoImage");
+      const name = document.getElementById("brandChurchName");
+      const subtitle = document.getElementById("brandChurchSubtitle");
+      const hashtag = document.getElementById("brandHashtag");
+      if (name) name.textContent = brand.churchName || "Immanuel";
+      if (subtitle) subtitle.textContent = brand.churchSubtitle || "Lutheran Church";
+      if (hashtag) {
+        const brandLine = [brand.website, brand.hashtag].filter(Boolean).join(" | ");
+        hashtag.textContent = brandLine;
+      }
+      if (logoImage && lockup && brand.logoUrl) {
+        logoImage.src = brand.logoUrl;
+        lockup.classList.add("has-logo-image");
+      } else if (logoImage && lockup) {
+        logoImage.removeAttribute("src");
+        lockup.classList.remove("has-logo-image");
+      }
+    }
+    function applyDisplaySettings() {
+      const color = CONFIG.backgroundColor || "#EAF1F7";
+      document.documentElement.style.setProperty("--bg", color);
+    }
+    function setupPromotions() {
+      if (setupFullScreenOverride()) return;
+      const mainLayout = document.getElementById("mainLayout");
+      const promoColumn = document.getElementById("promoColumn");
+      const sidePromo = document.getElementById("sidePromo");
+      const sidePromoTitle = document.getElementById("sidePromoTitle");
+      const sidePromoImage = document.getElementById("sidePromoImage");
+      const bottomPromo = document.getElementById("bottomPromo");
+      const bottomPromoImage = document.getElementById("bottomPromoImage");
+      const side = getActivePromotion("bannerImages", "sidePanel");
+      const bottom = getActivePromotion("eventImages", "bottomBanner");
+      if (side && side.enabled && side.imageUrl && mainLayout && sidePromo && sidePromoImage) {
+        mainLayout.classList.add("has-promo-column");
+        if (promoColumn) promoColumn.classList.add("is-enabled");
+        sidePromo.classList.add("is-enabled");
+        sidePromo.classList.toggle("fit-cover", side.fit === "cover");
+        sidePromoImage.src = side.imageUrl;
+        if (sidePromoTitle && side.title) {
+          sidePromoTitle.textContent = side.title;
+          sidePromoTitle.classList.add("has-title");
+        }
+      }
+      if (bottom && bottom.enabled && bottom.imageUrl && bottomPromo && bottomPromoImage) {
+        if (mainLayout) mainLayout.classList.add("has-promo-column");
+        if (promoColumn) promoColumn.classList.add("is-enabled");
+        bottomPromo.classList.add("is-enabled");
+        bottomPromo.classList.toggle("fit-cover", bottom.fit === "cover");
+        bottomPromo.classList.toggle("fit-contain", bottom.fit !== "cover");
+        bottomPromoImage.src = bottom.imageUrl;
+      }
+    }
+    function setupFullScreenOverride() {
+      const item = getActivePromotion("fullScreenOverrides", "fullScreenOverride");
+      const page = document.querySelector(".page");
+      const override = document.getElementById("fullscreenOverride");
+      const image = document.getElementById("fullscreenOverrideImage");
+      if (!item || !page || !override || !image) return false;
+      page.classList.add("has-fullscreen-override");
+      override.classList.toggle("fit-cover", item.fit === "cover");
+      image.src = item.imageUrl;
+      image.alt = item.title || "Full-screen override";
+      return true;
+    }
+    function getActiveSinglePromotion(key) {
+      const promotions = CONFIG.promotions || {};
+      const item = promotions[key];
+      return isPromotionActiveNow(item) ? item : null;
+    }
+    function getActivePromotion(listKey, fallbackKey) {
+      const promotions = CONFIG.promotions || {};
+      const scheduledItems = Array.isArray(promotions[listKey]) ? promotions[listKey] : [];
+      const activeScheduledItem = scheduledItems.find(function (item) {
+        return isPromotionActiveNow(item);
+      });
+      if (activeScheduledItem) return activeScheduledItem;
+      const fallback = promotions[fallbackKey];
+      return isPromotionActiveNow(fallback) ? fallback : null;
+    }
+    function isPromotionActiveNow(item) {
+      if (!item || !item.enabled || !item.imageUrl) return false;
+      const now = new Date();
+      const start = promotionDateTime(item.startDate, item.startTime, "00:01");
+      const stop = promotionDateTime(item.stopDate, item.stopTime, "23:59");
+      if (start && now < start) return false;
+      if (stop && now > stop) return false;
+      return true;
+    }
+    function promotionDateTime(dateValue, timeValue, defaultTime) {
+      if (!dateValue) return null;
+      return new Date(dateValue + "T" + (timeValue || defaultTime));
+    }
+    function getDateKey(date) {
+      const formatter = new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        timeZone: CONFIG.timezone
+      });
+      return formatter.format(date);
+    }
+    function updateDateAndClock() {
+      const now = new Date();
+      els.displayDate.textContent = new Intl.DateTimeFormat("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        timeZone: CONFIG.timezone
+      }).format(now);
+      els.clock.textContent = new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: CONFIG.timezone
+      }).format(now);
+    }
+    function getFeedsToLoad() {
+      const feeds = Array.isArray(CONFIG.calendarFeeds) ? CONFIG.calendarFeeds : [];
+      const enabledFeeds = feeds.filter(function (feed) {
+        return feed && feed.enabled !== false && feed.url;
+      });
+      if (!CONFIG.loadGeneralCalendarOnly) return enabledFeeds;
+      return enabledFeeds.filter(function (feed) {
+        return feed.key === "immanuel-general-calendar" || /general calendar/i.test(feed.label || "");
+      });
+    }
+    function fetchWithTimeout(url, options, timeoutMs) {
+      const controller = new AbortController();
+      const timer = setTimeout(function () {
+        controller.abort();
+      }, timeoutMs);
+      return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
+        .finally(function () {
+          clearTimeout(timer);
+        });
+    }
+    function fetchOneICS(feed, cacheBust) {
+      const url = feed.url + (feed.url.includes("?") ? "&" : "?") + "_ts=" + cacheBust;
+      return fetchWithTimeout(url, { cache: "no-store" }, CONFIG.feedTimeoutSeconds * 1000)
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status + " loading " + feed.label);
+          return res.text();
+        })
+        .then(function (text) {
+          return parseICS(text, feed.key, feed.label);
+        })
+        .catch(function (err) {
+          console.error("Error loading ICS", feed.url, err);
+          return [];
+        });
+    }
+    function fetchAllICSProgressive() {
+      const cacheBust = Date.now();
+      const feeds = getFeedsToLoad();
+      rawEventsBuffer = [];
+      const requests = feeds.map(function (feed) {
+        return fetchOneICS(feed, cacheBust).then(function (events) {
+          rawEventsBuffer = rawEventsBuffer.concat(events);
+          if (CONFIG.renderAsFeedsLoad) {
+            renderFromRawEvents(rawEventsBuffer, true);
+          }
+          return events;
+        });
+      });
+      return Promise.allSettled(requests).then(function (results) {
+        return results
+          .filter(function (result) { return result.status === "fulfilled"; })
+          .map(function (result) { return result.value; })
+          .flat();
+      });
+    }
+    async function loadCalendar() {
+      try {
+        els.refreshStatus.textContent = "Refreshing...";
+        els.eventCount.textContent = "Loading calendar feeds...";
+        const rawEvents = await fetchAllICSProgressive();
+        renderFromRawEvents(rawEvents, false);
+        const updated = new Date();
+        els.lastUpdated.textContent = "Last updated " + new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          second: "2-digit",
+          timeZone: CONFIG.timezone
+        }).format(updated);
+        els.refreshStatus.textContent = "Auto-refresh enabled";
+      } catch (error) {
+        console.error(error);
+        renderError(error);
+      }
+    }
+    function renderFromRawEvents(rawEvents, isPartial) {
+      const preparedEvents = prepareEvents(rawEvents);
+      const todaysEvents = preparedEvents
+        .filter(function (event) { return isToday(event._start); })
+        .filter(function (event) { return !CONFIG.hideEventsWithBlankLocation || event.location; })
+        .sort(function (a, b) {
+          if (a._start.getTime() !== b._start.getTime()) return a._start - b._start;
+          return a.title.localeCompare(b.title);
+        });
+      allEvents = dedupeEvents(todaysEvents);
+      currentPage = 0;
+      promoCycleComplete = false;
+      renderEvents();
+      setupPageRotation();
+      if (isPartial) {
+        els.refreshStatus.textContent = "Loading more feeds...";
+      }
+    }
+    function parseICS(text, feedKey, feedLabel) {
+      if (!text) return [];
+      const rawLines = text.split(/\r?\n/);
+      const lines = [];
+      rawLines.forEach(function (line) {
+        if (!line) return;
+        if (/^[ \t]/.test(line) && lines.length) {
+          lines[lines.length - 1] += line.slice(1);
+        } else {
+          lines.push(line);
+        }
+      });
+      const events = [];
+      let current = null;
+      lines.forEach(function (line) {
+        if (line.startsWith("BEGIN:VEVENT")) {
+          current = {};
+          return;
+        }
+        if (line.startsWith("END:VEVENT")) {
+          if (current) {
+            const recurrenceIdObj = current.RECURRENCE_ID ? parseICSDate(current.RECURRENCE_ID) : null;
+            const startObj = current.DTSTART ? parseICSDate(current.DTSTART) : recurrenceIdObj;
+            const endObj = current.DTEND ? parseICSDate(current.DTEND) : null;
+            if (startObj && startObj.date) {
+              events.push({
+                uid: current.UID || feedKey + "-" + (events.length + 1),
+                id: current.UID || feedKey + "-" + (events.length + 1),
+                title: cleanText(current.SUMMARY || ""),
+                description: cleanText(current.DESCRIPTION || ""),
+                location: cleanLocation((current.LOCATION || "").replace(/\,/g, ",").replace(/\;/g, ";")),
+                startDateTime: startObj.date.toISOString(),
+                endDateTime: endObj && endObj.date ? endObj.date.toISOString() : "",
+                feedKey: feedKey,
+                feedLabel: feedLabel,
+                RRULE: current.RRULE || null,
+                EXDATE: parseEXDATEValues(current.EXDATE || ""),
+                recurrenceIdTime: recurrenceIdObj && recurrenceIdObj.date ? recurrenceIdObj.date.getTime() : null,
+                STATUS: current.STATUS || "",
+                isCancelled: (current.STATUS || "").toUpperCase() === "CANCELLED",
+                allDay: startObj.allDay
+              });
+            }
+          }
+          current = null;
+          return;
+        }
+        if (!current) return;
+        const idx = line.indexOf(":");
+        if (idx === -1) return;
+        const rawKey = line.slice(0, idx);
+        const value = line.slice(idx + 1);
+        const key = rawKey.split(";")[0];
+        if (key === "RECURRENCE-ID") {
+          current.RECURRENCE_ID = value;
+        } else if (key === "EXDATE") {
+          current.EXDATE = current.EXDATE ? current.EXDATE + "," + value : value;
+        } else {
+          current[key] = value;
+        }
+      });
+      return events;
+    }
+    function parseICSDate(value) {
+      if (!value) return null;
+      const v = value.trim();
+      if (/^\d{8}$/.test(v)) {
+        const year = +v.slice(0, 4);
+        const month = +v.slice(4, 6) - 1;
+        const day = +v.slice(6, 8);
+        return { date: new Date(year, month, day), allDay: true };
+      }
+      const m = v.match(/^(\d{8})T(\d{6})(Z)?$/);
+      if (m) {
+        const d = m[1];
+        const t = m[2];
+        const isUTC = m[3];
+        const year = +d.slice(0, 4);
+        const month = +d.slice(4, 6) - 1;
+        const day = +d.slice(6, 8);
+        const hh = +t.slice(0, 2);
+        const mm = +t.slice(2, 4);
+        const ss = +t.slice(4, 6);
+        const date = isUTC
+          ? new Date(Date.UTC(year, month, day, hh, mm, ss))
+          : new Date(year, month, day, hh, mm, ss);
+        return { date: date, allDay: false };
+      }
+      const d2 = new Date(v);
+      return isNaN(d2.getTime()) ? null : { date: d2, allDay: false };
+    }
+    function parseEXDATEValues(rawValue) {
+      if (!rawValue) return [];
+      return rawValue
+        .split(",")
+        .map(function (v) { return v.trim(); })
+        .filter(Boolean)
+        .map(function (v) { return parseICSDate(v); })
+        .filter(function (obj) { return obj && obj.date; })
+        .map(function (obj) { return obj.date.getTime(); });
+    }
+    function makeOccurrenceKey(feedKey, uid, timeMs) {
+      return feedKey + "||" + uid + "||" + timeMs;
+    }
+    function eventPriority(e) {
+      let p = e.isGenerated ? 1 : 2;
+      if (e.recurrenceIdTime != null) p += 2;
+      if (e.isCancelled) p += 4;
+      return p;
+    }
+    function addOccurrenceToMap(map, event) {
+      const occurrenceTime = event.recurrenceIdTime != null ? event.recurrenceIdTime : event._start.getTime();
+      const key = makeOccurrenceKey(event.feedKey, event.uid, occurrenceTime);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, event);
+        return;
+      }
+      if (eventPriority(event) > eventPriority(existing)) {
+        map.set(key, Object.assign({}, existing, event, {
+          title: event.title || existing.title,
+          description: event.description || existing.description,
+          location: event.location || existing.location,
+          _start: event._start || existing._start,
+          _end: event._end || existing._end,
+          startDateTime: event.startDateTime || existing.startDateTime,
+          endDateTime: event.endDateTime || existing.endDateTime,
+          allDay: typeof event.allDay === "boolean" ? event.allDay : existing.allDay
+        }));
+      }
+    }
+    function expandWeeklyRecurrence(event, rangeStart, rangeEnd, overrideKeys) {
+      const occurrences = [];
+      if (!event.RRULE || !/FREQ=WEEKLY/.test(event.RRULE)) return occurrences;
+      const byDayMatch = event.RRULE.match(/BYDAY=([^;]+)/);
+      if (!byDayMatch) return occurrences;
+      const untilMatch = event.RRULE.match(/UNTIL=([0-9TZ]+)/);
+      const untilObj = untilMatch ? parseICSDate(untilMatch[1]) : null;
+      const untilDate = untilObj && untilObj.date ? untilObj.date : null;
+      const daysMap = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+      const days = byDayMatch[1]
+        .split(",")
+        .map(function (d) { return daysMap[d]; })
+        .filter(function (d) { return d !== undefined; });
+      const exdateSet = new Set(event.exdates || []);
+      const baseStart = event._start;
+      const baseEnd = event._end;
+      const duration = baseEnd ? baseEnd.getTime() - baseStart.getTime() : 0;
+      let cursor = new Date(rangeStart);
+      while (cursor <= rangeEnd) {
+        if (days.includes(cursor.getDay()) && cursor >= baseStart && (!untilDate || cursor <= untilDate)) {
+          const start = new Date(cursor);
+          start.setHours(baseStart.getHours(), baseStart.getMinutes(), baseStart.getSeconds(), baseStart.getMilliseconds());
+          const occurrenceMs = start.getTime();
+          const key = makeOccurrenceKey(event.feedKey, event.uid, occurrenceMs);
+          if (!exdateSet.has(occurrenceMs) && !overrideKeys.has(key)) {
+            const end = duration ? new Date(start.getTime() + duration) : null;
+            occurrences.push(Object.assign({}, event, {
+              _start: start,
+              _end: end,
+              isGenerated: true
+            }));
+          }
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return occurrences;
+    }
+    function prepareEvents(eventsData) {
+      const today = new Date();
+      const prepared = eventsData
+        .map(function (e) {
+          const start = new Date(e.startDateTime);
+          const end = e.endDateTime ? new Date(e.endDateTime) : null;
+          return Object.assign({}, e, {
+            _start: start,
+            _end: end,
+            exdates: Array.isArray(e.EXDATE) ? e.EXDATE.slice() : [],
+            isGenerated: false
+          });
+        })
+        .filter(function (e) { return !isNaN(e._start.getTime()); });
+      const rangeStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - CONFIG.recurrenceLookBackDays);
+      const rangeEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + CONFIG.recurrenceLookAheadDays);
+      const explicitOverrideKeys = new Set(
+        prepared
+          .filter(function (e) { return e.recurrenceIdTime != null; })
+          .map(function (e) { return makeOccurrenceKey(e.feedKey, e.uid, e.recurrenceIdTime); })
+      );
+      const masterRecurring = [];
+      const occurrenceMap = new Map();
+      prepared.forEach(function (e) {
+        if (e.RRULE && e.recurrenceIdTime == null) {
+          masterRecurring.push(e);
+        } else {
+          addOccurrenceToMap(occurrenceMap, e);
+        }
+      });
+      masterRecurring.forEach(function (master) {
+        expandWeeklyRecurrence(master, rangeStart, rangeEnd, explicitOverrideKeys).forEach(function (occ) {
+          addOccurrenceToMap(occurrenceMap, occ);
+        });
+      });
+      return Array.from(occurrenceMap.values());
+    }
+    function isToday(date) {
+      if (!date) return false;
+      const now = new Date();
+      return date.getFullYear() === now.getFullYear()
+        && date.getMonth() === now.getMonth()
+        && date.getDate() === now.getDate();
+    }
+    function renderEvents() {
+      els.events.innerHTML = "";
+      if (!allEvents.length) {
+        els.eventCount.textContent = "";
+        els.pageIndicator.textContent = "";
+        els.events.innerHTML = `
+          <div class="empty-state">
+            <div>
+              <h2>Welcome</h2>
+              <p>${escapeHtml(CONFIG.noEventsMessage)}</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      const promoMode = isPromoColumnActive();
+      const visibleEvents = promoMode ? getPromoAgendaEvents(allEvents, CONFIG.maxEventsPerPage) : null;
+      const pages = promoMode ? [visibleEvents] : chunkEvents(allEvents, CONFIG.maxEventsPerPage);
+      const page = pages[currentPage] || pages[0] || [];
+      els.eventCount.textContent = "";
+      els.pageIndicator.textContent = promoMode ? "" : (pages.length > 1 ? "Page " + (currentPage + 1) + " of " + pages.length : "");
+      page.forEach(function (event) {
+        const color = { bg: "#628D33", text: "#ffffff" };
+        const card = document.createElement("article");
+        card.className = "event-card" + (event.isCancelled ? " is-cancelled" : "");
+        card.style.borderLeftColor = color.bg;
+        card.innerHTML = `
+          <div class="event-time">
+            <span class="event-time-main">${event.allDay ? "All Day" : formatTime(event._start)}</span>
+            ${CONFIG.showEndTime && event._end && !event.allDay ? `<span class="event-end">to ${formatTime(event._end)}</span>` : ""}
+          </div>
+          <div class="event-main">
+            <div class="event-title"><span class="event-title-text">${escapeHtml(event.title)}</span>${event.isCancelled ? `<span class="cancelled-badge">Cancelled</span>` : ""}</div>
+            <div class="event-meta">
+              ${event.location ? `<span class="event-location">${escapeHtml(event.location)}</span>` : ""}
+              ${CONFIG.showFeedName ? `<span class="event-feed">${escapeHtml(event.feedLabel)}</span>` : ""}
+            </div>
+          </div>
+        `;
+        els.events.appendChild(card);
+      });
+      if (promoMode) renderOverflowNote(page.length, allEvents.length);
+    }
+    function isPromoColumnActive() {
+      const mainLayout = document.getElementById("mainLayout");
+      return Boolean(mainLayout && mainLayout.classList.contains("has-promo-column"));
+    }
+    function getPromoAgendaEvents(events, maxCount) {
+      const limit = Math.max(1, Number(maxCount) || 1);
+      if (events.length <= limit) return events;
+      if (!promoCycleComplete) {
+        return chunkEvents(events, limit)[currentPage] || events.slice(0, limit);
+      }
+      return getCurrentAgendaWindowEvents(events, limit);
+    }
+    function getCurrentAgendaWindowEvents(events, limit) {
+      const now = new Date();
+      const currentAndFuture = events.filter(function (event) {
+        const end = event._end || event._start;
+        return end && end.getTime() >= now.getTime();
+      });
+      if (currentAndFuture.length) return currentAndFuture.slice(0, limit);
+      return events.slice(-limit);
+    }
+    function renderOverflowNote(visibleCount, totalCount) {
+      const additionalCount = totalCount - visibleCount;
+      if (additionalCount <= 0) return;
+      const note = document.createElement("div");
+      note.className = "overflow-note";
+      note.textContent = additionalCount === 1 ? "1 additional meeting" : additionalCount + " additional meetings";
+      els.events.appendChild(note);
+    }
+    function setupPageRotation() {
+      if (pageTimer) {
+        clearInterval(pageTimer);
+        pageTimer = null;
+      }
+      if (isPromoColumnActive()) {
+        const promoPages = chunkEvents(allEvents, CONFIG.maxEventsPerPage);
+        if (promoPages.length <= 1) return;
+        pageTimer = setInterval(function () {
+          const nextPage = currentPage + 1;
+          if (nextPage >= promoPages.length) {
+            promoCycleComplete = true;
+            currentPage = 0;
+          } else {
+            currentPage = nextPage;
+          }
+          renderEvents();
+        }, CONFIG.pageRotationSeconds * 1000);
+        return;
+      }
+      const pages = chunkEvents(allEvents, CONFIG.maxEventsPerPage);
+      if (!CONFIG.rotatePages || pages.length <= 1) return;
+      pageTimer = setInterval(function () {
+        currentPage = (currentPage + 1) % pages.length;
+        renderEvents();
+      }, CONFIG.pageRotationSeconds * 1000);
+    }
+    function renderError(error) {
+      els.eventCount.textContent = "Calendar feed error";
+      els.pageIndicator.textContent = "";
+      els.refreshStatus.textContent = "Refresh failed";
+      els.lastUpdated.textContent = "Check feed URL or browser console";
+      els.events.innerHTML = `
+        <div class="error-state">
+          <div>
+            <h2>Calendar Unavailable</h2>
+            <p>${escapeHtml(error.message || "The activity calendar could not be loaded.")}</p>
+          </div>
+        </div>
+      `;
+    }
+    function dedupeEvents(events) {
+      const seen = new Set();
+      const result = [];
+      events.forEach(function (event) {
+        const key = [
+          event.title || "",
+          event.location || "",
+          event._start ? event._start.getTime() : "",
+          event._end ? event._end.getTime() : ""
+        ].join("||").toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push(event);
+        }
+      });
+      return result;
+    }
+    function chunkEvents(events, size) {
+      const chunks = [];
+      for (let i = 0; i < events.length; i += size) chunks.push(events.slice(i, i + size));
+      return chunks;
+    }
+    function formatTime(date) {
+      return new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: CONFIG.timezone
+      }).format(date);
+    }
+    function cleanLocation(value) {
+      return cleanText(value)
+        .split(";")
+        .map(function (part) { return part.trim(); })
+        .filter(function (part) { return part && !isUrlLike(part); })
+        .join("; ");
+    }
+    function isUrlLike(value) {
+      return /(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}(?:\/|$))/i.test(String(value || "").trim());
+    }
+    function cleanText(value) {
+      return String(value || "")
+        .replace(/\\n/g, " ")
+        .replace(/\\,/g, ",")
+        .replace(/\\;/g, ";")
+        .replace(/\\\\/g, "\\")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+    init();
+ </script>
+</body>
+</html>

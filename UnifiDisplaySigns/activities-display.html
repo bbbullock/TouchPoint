@@ -84,6 +84,14 @@
     .page.has-fullscreen-override .fullscreen-override {
       display: block;
     }
+    .page.is-after-hours-blackout {
+      background: #000000;
+    }
+    .page.is-after-hours-blackout .header,
+    .page.is-after-hours-blackout .content,
+    .page.is-after-hours-blackout .fullscreen-override {
+      display: none;
+    }
     .header {
       display: flex;
       flex-direction: column;
@@ -666,11 +674,16 @@
       recurrenceLookBackDays: 7,
       recurrenceLookAheadDays: 14
     };
+    const AFTER_HOURS_BLACKOUT_START_HOUR = 18;
+    const AFTER_HOURS_BLACKOUT_DELAY_MINUTES = 30;
+    const CONFIG_REFRESH_MS = 60 * 1000;
     let allEvents = [];
     let rawEventsBuffer = [];
     let currentPage = 0;
     let pageTimer = null;
     let promoCycleComplete = false;
+    let blackoutTimer = null;
+    let calendarLoadComplete = false;
     const els = {
       screenTitle: document.getElementById("screenTitle"),
       displayDate: document.getElementById("displayDate"),
@@ -691,6 +704,8 @@
       setInterval(updateDateAndClock, 1000);
       loadCalendar();
       setInterval(loadCalendar, CONFIG.refreshMinutes * 60 * 1000);
+      setInterval(refreshDisplayConfig, CONFIG_REFRESH_MS);
+      setupAfterHoursBlackoutTimer();
     }
     async function loadDisplayConfig() {
       const configUrls = ["/api/config", "config.json"];
@@ -706,11 +721,22 @@
           if (remoteConfig.promotions) {
             mergeConfig(PROMOTION_SETTINGS, remoteConfig.promotions);
           }
-          return;
+          return true;
         } catch (error) {
           console.warn("Display config not loaded from", url, error);
         }
       }
+      return false;
+    }
+    async function refreshDisplayConfig() {
+      const loaded = await loadDisplayConfig();
+      if (!loaded) return;
+      applyDisplaySettings();
+      applyBranding();
+      setupPromotions();
+      renderEvents();
+      setupPageRotation();
+      updateAfterHoursBlackout();
     }
     function mergeConfig(target, source) {
       if (!source || typeof source !== "object" || Array.isArray(source)) return target;
@@ -751,6 +777,7 @@
       document.documentElement.style.setProperty("--bg", color);
     }
     function setupPromotions() {
+      resetPromotionDisplay();
       if (setupFullScreenOverride()) return;
       const mainLayout = document.getElementById("mainLayout");
       const promoColumn = document.getElementById("promoColumn");
@@ -779,6 +806,34 @@
         bottomPromo.classList.toggle("fit-cover", bottom.fit === "cover");
         bottomPromo.classList.toggle("fit-contain", bottom.fit !== "cover");
         bottomPromoImage.src = bottom.imageUrl;
+      }
+    }
+    function resetPromotionDisplay() {
+      const page = document.querySelector(".page");
+      const mainLayout = document.getElementById("mainLayout");
+      const promoColumn = document.getElementById("promoColumn");
+      const sidePromo = document.getElementById("sidePromo");
+      const sidePromoTitle = document.getElementById("sidePromoTitle");
+      const sidePromoImage = document.getElementById("sidePromoImage");
+      const bottomPromo = document.getElementById("bottomPromo");
+      const bottomPromoImage = document.getElementById("bottomPromoImage");
+      const override = document.getElementById("fullscreenOverride");
+      const overrideImage = document.getElementById("fullscreenOverrideImage");
+      if (page) page.classList.remove("has-fullscreen-override");
+      if (mainLayout) mainLayout.classList.remove("has-promo-column");
+      if (promoColumn) promoColumn.classList.remove("is-enabled");
+      if (sidePromo) sidePromo.classList.remove("is-enabled", "fit-cover");
+      if (sidePromoTitle) {
+        sidePromoTitle.textContent = "";
+        sidePromoTitle.classList.remove("has-title");
+      }
+      if (sidePromoImage) sidePromoImage.removeAttribute("src");
+      if (bottomPromo) bottomPromo.classList.remove("is-enabled", "fit-cover", "fit-contain");
+      if (bottomPromoImage) bottomPromoImage.removeAttribute("src");
+      if (override) override.classList.remove("fit-cover");
+      if (overrideImage) {
+        overrideImage.removeAttribute("src");
+        overrideImage.alt = "Full-screen override";
       }
     }
     function setupFullScreenOverride() {
@@ -901,9 +956,11 @@
     }
     async function loadCalendar() {
       try {
+        calendarLoadComplete = false;
         els.refreshStatus.textContent = "Refreshing...";
         els.eventCount.textContent = "Loading calendar feeds...";
         const rawEvents = await fetchAllICSProgressive();
+        calendarLoadComplete = true;
         renderFromRawEvents(rawEvents, false);
         const updated = new Date();
         els.lastUpdated.textContent = "Last updated " + new Intl.DateTimeFormat("en-US", {
@@ -932,9 +989,44 @@
       promoCycleComplete = false;
       renderEvents();
       setupPageRotation();
+      updateAfterHoursBlackout();
       if (isPartial) {
         els.refreshStatus.textContent = "Loading more feeds...";
       }
+    }
+    function setupAfterHoursBlackoutTimer() {
+      if (blackoutTimer) clearInterval(blackoutTimer);
+      blackoutTimer = setInterval(updateAfterHoursBlackout, 60 * 1000);
+    }
+    function updateAfterHoursBlackout() {
+      const page = document.querySelector(".page");
+      if (!page) return;
+      page.classList.toggle("is-after-hours-blackout", shouldBlackOutAfterHours());
+    }
+    function shouldBlackOutAfterHours() {
+      if (!calendarLoadComplete || !allEvents.length) return false;
+      const lastEnd = latestMeetingEndToday(allEvents);
+      if (!lastEnd) return false;
+      const cutoff = new Date(lastEnd);
+      cutoff.setMinutes(cutoff.getMinutes() + AFTER_HOURS_BLACKOUT_DELAY_MINUTES);
+      const endedAfterSix = lastEnd.getHours() > AFTER_HOURS_BLACKOUT_START_HOUR
+        || (lastEnd.getHours() === AFTER_HOURS_BLACKOUT_START_HOUR && lastEnd.getMinutes() > 0);
+      return endedAfterSix && new Date().getTime() >= cutoff.getTime();
+    }
+    function latestMeetingEndToday(events) {
+      return events
+        .filter(function (event) {
+          return !event.isCancelled && !event.allDay;
+        })
+        .map(function (event) {
+          return event._end || event._start;
+        })
+        .filter(function (end) {
+          return end && isToday(end);
+        })
+        .sort(function (a, b) {
+          return b.getTime() - a.getTime();
+        })[0] || null;
     }
     function parseICS(text, feedKey, feedLabel) {
       if (!text) return [];

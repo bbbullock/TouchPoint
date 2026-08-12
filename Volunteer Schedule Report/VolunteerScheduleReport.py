@@ -5,7 +5,8 @@ Weekly Volunteer Schedule Report for TouchPoint Scheduler Involvements.
 
 Read-only with respect to people, Involvements, meetings, assignments, and
 commitments. The only writes are successful automated-send state in Text
-Content. Email is disabled by default.
+Content and this extension's saved-profile configuration. Email is disabled by
+default.
 
 Scheduler table relationships were informed by TPxi Scheduler Report v2.2:
 https://github.com/bswaby/Touchpoint/tree/main/TPxi/Scheduler%20Report
@@ -109,6 +110,10 @@ def safe_int(value, default=0):
         return int(value)
     except Exception:
         return default
+
+
+def truthy(raw):
+    return str(raw or "").strip().lower() in ("true", "1", "yes", "y", "on")
 
 
 def format_datetime(value):
@@ -267,6 +272,13 @@ def profiles_from_document(document):
     return [profile for profile in document.get("profiles", []) if valid_profile(profile)]
 
 
+def profile_kind(profile):
+    value = str(profile.get("profile_type", "") or "").strip().lower()
+    if value == "manual":
+        return "manual"
+    return "monday"
+
+
 def selected_profile(profiles, profile_id):
     wanted = str(profile_id or "")
     for profile in profiles:
@@ -384,7 +396,37 @@ def render_report(slots, start_date, end_date, title, include_controls,
         '</tr></table>',
     ]
     if include_controls:
-        parts.append('<div class="vsr-actions no-print"><button type="button" class="btn btn-default" onclick="window.print()">Print report</button></div>')
+        parts.append('''<div class="vsr-actions no-print"><button type="button" class="btn btn-primary btn-lg vsr-print-button" onclick="printVolunteerScheduleReport()">Print Report</button></div>
+<script>
+function printVolunteerScheduleReport() {
+  var report = document.querySelector('.vsr-report');
+  var styles = document.getElementById('vsrReportStyles');
+  if (!report || !styles) {
+    window.print();
+    return;
+  }
+  var frame = document.createElement('iframe');
+  frame.setAttribute('title', 'Print Volunteer Schedule Report');
+  frame.style.position = 'fixed';
+  frame.style.left = '-10000px';
+  frame.style.top = '0';
+  frame.style.width = '1200px';
+  frame.style.height = '800px';
+  frame.style.border = '0';
+  document.body.appendChild(frame);
+  var printDocument = frame.contentWindow.document;
+  printDocument.open();
+  printDocument.write('<!doctype html><html><head><meta charset="utf-8">' + styles.outerHTML + '<style>body{margin:0;padding:18px;background:#fff}.no-print{display:none!important}</style></head><body>' + report.outerHTML + '</body></html>');
+  printDocument.close();
+  frame.contentWindow.onafterprint = function() {
+    if (frame.parentNode) frame.parentNode.removeChild(frame);
+  };
+  window.setTimeout(function() {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+  }, 250);
+}
+</script>''')
     if not slots:
         parts.append('<div class="alert alert-info">No Scheduler slots were found for the selected Involvements and dates.</div>')
     current_org = None
@@ -458,14 +500,15 @@ def render_report(slots, start_date, end_date, title, include_controls,
 
 
 REPORT_STYLE = """
-<style>
+<style id="vsrReportStyles">
 .vsr-shell,.vsr-report{max-width:1180px;margin:20px auto;color:#24313d}
 .vsr-panel{border:1px solid #d8e0e7;border-radius:8px;padding:18px;background:#fff;margin-bottom:18px}
 .vsr-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.vsr-grid .wide{grid-column:1/-1}
+.vsr-privacy{border-left:5px solid #b43535;background:#fff3f3;padding:12px}.vsr-privacy p{margin:4px 0 8px}
 .vsr-selected{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.vsr-pill{background:#e8f1f8;border-radius:14px;padding:4px 9px}
 .vsr-results{position:relative}.vsr-results-list{position:absolute;z-index:4;background:#fff;border:1px solid #ccd6df;width:100%;box-shadow:0 3px 10px #999;max-height:220px;overflow:auto}
 .vsr-result{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #eee;background:#fff;padding:8px}.vsr-result:hover{background:#f3f7fa}
-.vsr-report-head{margin-bottom:12px}.vsr-summary{border-collapse:separate;border-spacing:0;margin:0 0 20px;table-layout:fixed;width:100%}.vsr-summary td{background:#eef3f6;border:1px solid #d8e0e7;border-right:0;overflow-wrap:anywhere;padding:12px;vertical-align:top;width:20%}.vsr-summary td:first-child{border-radius:7px 0 0 7px}.vsr-summary td:last-child{border-radius:0 7px 7px 0;border-right:1px solid #d8e0e7}.vsr-summary strong{display:block;font-size:26px;margin-bottom:4px}.vsr-summary span{display:block;font-weight:bold}.vsr-summary-confirmed{background:#dff2e4!important}.vsr-summary-awaiting{background:#fff0c7!important}.vsr-summary-vacancy,.vsr-summary-warning{background:#fde2e2!important}.vsr-actions{margin:10px 0}
+.vsr-report-head{margin-bottom:12px}.vsr-summary{border-collapse:separate;border-spacing:0;margin:0 0 20px;table-layout:fixed;width:100%}.vsr-summary td{background:#eef3f6;border:1px solid #d8e0e7;border-right:0;overflow-wrap:anywhere;padding:12px;vertical-align:top;width:20%}.vsr-summary td:first-child{border-radius:7px 0 0 7px}.vsr-summary td:last-child{border-radius:0 7px 7px 0;border-right:1px solid #d8e0e7}.vsr-summary strong{display:block;font-size:26px;margin-bottom:4px}.vsr-summary span{display:block;font-weight:bold}.vsr-summary-confirmed{background:#dff2e4!important}.vsr-summary-awaiting{background:#fff0c7!important}.vsr-summary-vacancy,.vsr-summary-warning{background:#fde2e2!important}.vsr-actions{margin:10px 0 18px;text-align:right}.vsr-print-button{font-weight:bold;min-width:160px;padding:10px 20px}
 .vsr-org{page-break-inside:avoid}.vsr-org h3{border-bottom:3px solid #2b6f98;padding-bottom:5px}.vsr-org h4{margin:18px 0 8px}
 .vsr-slot{border:1px solid #d7dee5;border-left:5px solid #37845a;margin:8px 0 14px;padding:10px;page-break-inside:avoid}.vsr-slot-open{border-left-color:#b43535}.vsr-slot-title{display:flex;justify-content:space-between;gap:12px;margin-bottom:7px}
 .vsr-slot table{border-collapse:collapse;width:100%;font-size:13px}.vsr-slot th,.vsr-slot td{border-top:1px solid #e1e6ea;padding:6px;text-align:left}.vsr-badge{display:inline-block;padding:2px 7px;border-radius:10px;background:#edf1f4}.vsr-status-committed,.vsr-status-substitute{background:#dff2e4;color:#245c36}.vsr-status-scheduled{background:#fff0c7;color:#735100}.vsr-status-find-sub{background:#fde2e2;color:#8b1f1f}.vsr-gap{background:#fde2e2;border:1px solid #d99b9b;border-radius:5px;color:#8b1f1f;display:inline-block;margin-top:9px;padding:6px 10px}.vsr-find-sub{margin-top:7px;color:#8b1f1f}
@@ -619,8 +662,136 @@ def search_people():
 
 
 def load_profiles():
-    document = load_json_text(model.TextContent(PROFILES_CONTENT), {"version": PROFILE_VERSION, "profiles": []})
+    document = load_profile_document()
     return profiles_from_document(document)
+
+
+def load_profile_document():
+    raw = str(model.TextContent(PROFILES_CONTENT) or "").strip()
+    if not raw:
+        return {"version": PROFILE_VERSION, "profiles": []}
+    try:
+        document = json.loads(raw)
+    except Exception:
+        raise ValueError("Saved profile content is not valid JSON. Correct or archive the Text Content before saving.")
+    if not isinstance(document, dict) or safe_int(document.get("version"), 0) != PROFILE_VERSION:
+        raise ValueError("Saved profile content has an unsupported version.")
+    if not isinstance(document.get("profiles"), list):
+        document["profiles"] = []
+    return document
+
+
+def save_profile_document(document):
+    model.WriteContentText(PROFILES_CONTENT, json.dumps(document, sort_keys=True), "")
+
+
+def validate_people_ids(ids):
+    values = parse_ids(ids)
+    if not values:
+        return []
+    rows = list(q.QuerySql("""
+        SELECT PeopleId FROM People
+        WHERE PeopleId IN ({0})
+          AND ISNULL(IsDeceased, 0) = 0 AND ISNULL(ArchivedFlag, 0) = 0
+    """.format(",".join(str(value) for value in values))))
+    found = sorted(safe_int(row.PeopleId) for row in rows)
+    if found != sorted(values):
+        raise ValueError("One or more selected staff People IDs are invalid or inactive.")
+    return values
+
+
+def validate_scheduler_ids(ids):
+    values = parse_ids(ids)
+    if not values:
+        raise ValueError("Select at least one Scheduler Involvement.")
+    rows = list(q.QuerySql("""
+        SELECT o.OrganizationId
+        FROM Organizations o
+        WHERE o.OrganizationId IN ({0})
+          AND o.OrganizationStatusId = 30
+          AND o.RegistrationTypeId = 22
+          AND EXISTS (
+              SELECT 1 FROM TimeSlotMeetings tsm
+              JOIN Meetings m ON m.MeetingId = tsm.MeetingId
+              WHERE m.OrganizationId = o.OrganizationId
+          )
+    """.format(",".join(str(value) for value in values))))
+    found = sorted(safe_int(row.OrganizationId) for row in rows)
+    if found != sorted(values):
+        raise ValueError("One or more selected Involvements are not active Schedulers.")
+    return values
+
+
+def new_profile_id(name):
+    base = "".join(char.lower() if char.isalnum() else "-" for char in str(name)).strip("-")
+    while "--" in base:
+        base = base.replace("--", "-")
+    if not base:
+        base = "profile"
+    return "{0}-{1}".format(base[:28], datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
+
+
+def validate_unique_profile_name(profiles, name, current_id):
+    wanted = str(name or "").strip().lower()
+    for profile in profiles:
+        if (str(profile.get("id", "")) != str(current_id or "") and
+                str(profile.get("name", "")).strip().lower() == wanted):
+            raise ValueError("A saved profile with this name already exists.")
+
+
+def save_manual_profile(document):
+    profiles = document["profiles"]
+    profile_id = str(data_value("presetId", "") or "").strip()
+    existing = selected_profile(profiles, profile_id)
+    if profile_id and existing is None:
+        raise ValueError("The selected saved profile was not found. Refresh the report and try again.")
+    if existing is not None and profile_kind(existing) != "manual":
+        raise ValueError("Monday Batch profiles can only be edited in Volunteer Schedule Report Administration.")
+    name = str(data_value("profileName", "") or "").strip()
+    if not name:
+        raise ValueError("Profile name is required.")
+    validate_unique_profile_name(profiles, name, profile_id)
+    scheduler_ids = validate_scheduler_ids(data_value("schedulerIds", ""))
+    staff_ids = validate_people_ids(data_value("staffPeopleIds", ""))
+    include_volunteers = truthy(data_value("includeServingVolunteers", ""))
+    include_email = truthy(data_value("includeVolunteerEmail", ""))
+    include_phone = truthy(data_value("includeVolunteerPhone", ""))
+    acknowledged = truthy(data_value("privacyAcknowledged", ""))
+    if include_volunteers and (include_email or include_phone) and not acknowledged:
+        raise ValueError("Confirm the contact-information notice before saving volunteer delivery with contact details.")
+    value = {
+        "id": str(existing.get("id")) if existing else new_profile_id(name),
+        "name": name,
+        "profile_type": "manual",
+        "scheduler_ids": scheduler_ids,
+        "include_serving_volunteers": include_volunteers,
+        "include_volunteer_email": include_email,
+        "include_volunteer_phone": include_phone,
+        "staff_people_ids": staff_ids,
+        "enabled": False,
+        "send_weekday": 0,
+        "privacy_acknowledged": acknowledged,
+        "last_saved_people_id": safe_int(getattr(model, "UserPeopleId", 0)),
+        "last_saved_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    if existing:
+        profiles[profiles.index(existing)] = value
+    else:
+        profiles.append(value)
+    profiles.sort(key=lambda item: str(item.get("name", "")).lower())
+    save_profile_document(document)
+    return value
+
+
+def delete_manual_profile(document):
+    profile_id = str(data_value("presetId", "") or "").strip()
+    existing = selected_profile(document["profiles"], profile_id)
+    if existing is None:
+        raise ValueError("Select a saved standalone profile to delete.")
+    if profile_kind(existing) != "manual":
+        raise ValueError("Monday Batch profiles can only be deleted in Volunteer Schedule Report Administration.")
+    document["profiles"].remove(existing)
+    save_profile_document(document)
 
 
 def load_send_state():
@@ -661,7 +832,9 @@ def run_profiles():
     start_date, end_date = next_weekend_from_monday(today)
     window_key = "{0}|{1}".format(iso_date(start_date), iso_date(end_date))
     for profile in profiles:
-        if not bool(profile.get("enabled", False)) or safe_int(profile.get("send_weekday", 0), 0) != today.weekday():
+        if (profile_kind(profile) != "monday" or
+                not bool(profile.get("enabled", False)) or
+                safe_int(profile.get("send_weekday", 0), 0) != today.weekday()):
             continue
         profile_id = str(profile.get("id"))
         name = str(profile.get("name") or profile_id)
@@ -733,6 +906,8 @@ def profile_presets(profiles):
         presets.append({
             "id": str(profile.get("id", "")),
             "name": str(profile.get("name", "")),
+            "profile_type": profile_kind(profile),
+            "read_only": profile_kind(profile) == "monday",
             "enabled": bool(profile.get("enabled", False)),
             "orgs": [{"id": safe_int(row.OrganizationId),
                       "name": str(row.OrganizationName or "")} for row in orgs],
@@ -744,13 +919,15 @@ def profile_presets(profiles):
                 profile.get("include_volunteer_email", True)),
             "include_volunteer_phone": bool(
                 profile.get("include_volunteer_phone", True)),
+            "privacy_acknowledged": bool(
+                profile.get("privacy_acknowledged", False)),
         })
     return presets
 
 
 def render_runner(selected_org_ids, staff_ids, start_date, end_date, include_serving,
                   include_email, include_phone, selected_profile_id, profiles,
-                  report_html, message):
+                  profile_name, privacy_acknowledged, report_html, message):
     selected_orgs = load_selected_involvements(selected_org_ids)
     selected_staff = people_details(staff_ids)
     org_json = json_for_script([{"id": safe_int(r.OrganizationId), "name": str(r.OrganizationName or "")} for r in selected_orgs])
@@ -760,12 +937,27 @@ def render_runner(selected_org_ids, staff_ids, start_date, end_date, include_ser
     preset_options = ['<option value="">Custom report</option>']
     for preset in presets:
         selected = " selected" if preset["id"] == str(selected_profile_id or "") else ""
-        label = preset["name"] if preset["enabled"] else preset["name"] + " (disabled)"
+        if preset["profile_type"] == "monday":
+            label = preset["name"] + " — Monday Batch"
+            if not preset["enabled"]:
+                label += " (disabled)"
+        else:
+            label = preset["name"] + " — Saved Profile"
         preset_options.append('<option value="{0}"{1}>{2}</option>'.format(
             html_escape(preset["id"]), selected, html_escape(label)))
     checked = " checked" if include_serving else ""
     checked_email = " checked" if include_email else ""
     checked_phone = " checked" if include_phone else ""
+    checked_privacy = " checked" if privacy_acknowledged else ""
+    contact_notice_style = "" if include_email or include_phone else ' style="display:none"'
+    selected_value = selected_profile(profiles, selected_profile_id)
+    profile_read_only = selected_value is not None and profile_kind(selected_value) == "monday"
+    profile_read_only_note = ""
+    if profile_read_only:
+        profile_read_only_note = '<div class="alert alert-info">This is a Monday Batch profile. You may use or adjust it for this report, but it can only be edited or deleted in Volunteer Schedule Report Administration.</div>'
+    save_disabled = " disabled" if profile_read_only else ""
+    delete_disabled = "" if selected_value is not None and not profile_read_only else " disabled"
+    save_label = "Update profile" if selected_value is not None and not profile_read_only else "Save as new profile"
     email_is_enabled = bool_setting("EmailEnabled", False)
     email_disabled = "" if email_is_enabled else " disabled"
     email_note = "Email is enabled. Select serving volunteers and/or a staff recipient." if email_is_enabled else "Email is disabled. Configure and save Delivery settings in VolunteerScheduleReportAdmin."
@@ -776,39 +968,53 @@ def render_runner(selected_org_ids, staff_ids, start_date, end_date, include_ser
     parts.append("""
 <form action="/PyScriptForm/VolunteerScheduleReport" method="post" id="vsrForm">
   <div class="vsr-grid">
-    <div class="wide"><label>Saved Monday profile preset</label>
+    <div class="wide"><label>Saved Profile Preset</label>
       <select class="form-control" name="presetId" id="vsrProfilePreset">{12}</select>
       <span class="help-block">Selecting a preset fills this form only. It does not send email or change the saved profile.</span></div>
+    <div class="wide" id="vsrProfileNotice">{14}</div>
+    <div class="wide"><label>Profile name</label><input class="form-control" name="profileName" id="vsrProfileName" value="{15}" maxlength="100"></div>
     <div class="wide"><label>Scheduler Involvements</label><div class="vsr-results">
       <input type="search" class="form-control" id="vsrOrgSearch" placeholder="Search by Scheduler name or ID" autocomplete="off">
       <div id="vsrOrgResults"></div></div><div class="vsr-selected" id="vsrSelectedOrgs"></div>
       <input type="hidden" name="schedulerIds" id="vsrSchedulerIds" value="{0}"></div>
     <div><label>Start date</label><input class="form-control" type="date" name="startDate" value="{1}" required></div>
     <div><label>End date</label><input class="form-control" type="date" name="endDate" value="{2}" required></div>
-    <div><label><input type="checkbox" name="includeVolunteerEmail" value="true"{10}> Include volunteer email addresses</label></div>
-    <div><label><input type="checkbox" name="includeVolunteerPhone" value="true"{11}> Include volunteer mobile phones</label></div>
+    <div><label><input type="checkbox" name="includeVolunteerEmail" id="vsrIncludeEmail" value="true"{10}> Include volunteer email addresses</label></div>
+    <div><label><input type="checkbox" name="includeVolunteerPhone" id="vsrIncludePhone" value="true"{11}> Include volunteer mobile phones</label></div>
     <div class="wide"><label><input type="checkbox" name="includeServingVolunteers" value="true"{3}> Email all volunteers serving in this range</label></div>
-    <div class="wide"><label>Additional staff recipients</label><div class="vsr-results">
+    <div class="wide"><label>Staff Recipients</label><div class="vsr-results">
       <input type="search" class="form-control" id="vsrPersonSearch" placeholder="Search staff by name, email, or People ID" autocomplete="off">
       <div id="vsrPersonResults"></div></div><div class="vsr-selected" id="vsrSelectedStaff"></div>
       <input type="hidden" name="staffPeopleIds" id="vsrStaffIds" value="{4}"></div>
+    <div class="wide vsr-privacy" id="vsrContactNotice"{20}><strong>Contact Information Notice</strong><p>Each recipient receives the same complete report. Any selected contact fields are visible for every listed volunteer.</p><label><input type="checkbox" name="privacyAcknowledged" id="vsrPrivacyAcknowledged" value="true"{16}> I confirm this profile is authorized to distribute the selected contact details.</label></div>
   </div>
-  <div style="margin-top:15px"><button class="btn btn-primary" name="VSRAction" value="preview">Preview report</button>
+  <div style="margin-top:15px"><button class="btn btn-default" id="vsrSaveProfileButton" name="VSRAction" value="save_profile"{17}>{18}</button>
+  <button class="btn btn-danger" id="vsrDeleteProfileButton" name="VSRAction" value="delete_profile" onclick="return confirm('Delete this saved standalone profile?')"{19}>Delete profile</button></div>
+  <div style="margin-top:15px"><button class="btn btn-primary" name="VSRAction" value="preview" formtarget="_blank">Preview report</button>
   <button class="btn btn-default" id="vsrEmailButton" name="VSRAction" value="email"{7}>Email current report</button>
   <span class="help-block" id="vsrEmailNote">{8}</span></div>
 </form></div></div>
 <script>
 (function(){{
   var orgs={5}, people={6}, presets={13};
+  var form=document.getElementById('vsrForm'),dirty=false,activePresetId=document.getElementById('vsrProfilePreset').value;
   function esc(v){{return String(v||'').replace(/[&<>"']/g,function(c){{return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c];}});}}
   var emailEnabled={9};
   function updateEmailButton(){{var button=document.getElementById('vsrEmailButton'),serving=document.querySelector('input[name="includeServingVolunteers"]'),staff=document.getElementById('vsrStaffIds');if(button)button.disabled=!emailEnabled||!(serving.checked||staff.value);}}
+  function updateContactNotice(){{var email=document.getElementById('vsrIncludeEmail'),phone=document.getElementById('vsrIncludePhone'),notice=document.getElementById('vsrContactNotice');notice.style.display=email.checked||phone.checked?'':'none';}}
+  function profileById(id){{var i;for(i=0;i<presets.length;i++)if(presets[i].id===id)return presets[i];return null;}}
+  function updateProfileControls(preset){{var readOnly=preset&&preset.read_only,save=document.getElementById('vsrSaveProfileButton'),del=document.getElementById('vsrDeleteProfileButton'),notice=document.getElementById('vsrProfileNotice');save.disabled=!!readOnly;save.textContent=preset&&!readOnly?'Update profile':'Save as new profile';del.disabled=!preset||!!readOnly;notice.innerHTML=readOnly?'<div class="alert alert-info">This is a Monday Batch profile. You may use or adjust it for this report, but it can only be edited or deleted in Volunteer Schedule Report Administration.</div>':'';}}
   function draw(items, box, hidden){{box.innerHTML='';items.forEach(function(x,i){{var s=document.createElement('span');s.className='vsr-pill';s.innerHTML=esc(x.name)+' <button type="button" aria-label="Remove">&times;</button>';s.querySelector('button').onclick=function(){{items.splice(i,1);draw(items,box,hidden);}};box.appendChild(s);}});hidden.value=items.map(function(x){{return x.id;}}).join(',');updateEmailButton();}}
   function search(input, resultBox, action, selected, selectedBox, hidden){{var timer;input.oninput=function(){{clearTimeout(timer);var term=input.value.trim();if(term.length<2){{resultBox.innerHTML='';return;}}timer=setTimeout(function(){{var body='VSRAction='+encodeURIComponent(action)+'&term='+encodeURIComponent(term);fetch('/PyScriptForm/VolunteerScheduleReport',{{method:'POST',headers:{{'Content-Type':'application/x-www-form-urlencoded'}},body:body}}).then(function(r){{return r.json();}}).then(function(d){{resultBox.className='vsr-results-list';resultBox.innerHTML='';(d.items||[]).forEach(function(x){{var b=document.createElement('button');b.type='button';b.className='vsr-result';b.textContent=x.name+' ('+x.id+')'+(x.email?' — '+x.email:'');b.onclick=function(){{if(!selected.some(function(y){{return y.id===x.id;}}))selected.push(x);draw(selected,selectedBox,hidden);resultBox.innerHTML='';input.value='';}};resultBox.appendChild(b);}});}});}},250);}};}}
   var orgBox=document.getElementById('vsrSelectedOrgs'),orgHidden=document.getElementById('vsrSchedulerIds');
   var staffBox=document.getElementById('vsrSelectedStaff'),staffHidden=document.getElementById('vsrStaffIds');
   draw(orgs,orgBox,orgHidden);draw(people,staffBox,staffHidden);
-  document.getElementById('vsrProfilePreset').onchange=function(){{var id=this.value,preset=null,i;for(i=0;i<presets.length;i++){{if(presets[i].id===id){{preset=presets[i];break;}}}}if(!preset)return;orgs=preset.orgs.slice(0);people=preset.staff.slice(0);draw(orgs,orgBox,orgHidden);draw(people,staffBox,staffHidden);document.querySelector('input[name="includeServingVolunteers"]').checked=preset.include_serving_volunteers;document.querySelector('input[name="includeVolunteerEmail"]').checked=preset.include_volunteer_email;document.querySelector('input[name="includeVolunteerPhone"]').checked=preset.include_volunteer_phone;updateEmailButton();}};
+  form.oninput=function(e){{if(e.target.id!=='vsrProfilePreset')dirty=true;}};
+  form.onchange=function(e){{if(e.target.id!=='vsrProfilePreset')dirty=true;if(e.target.id==='vsrIncludeEmail'||e.target.id==='vsrIncludePhone')updateContactNotice();}};
+  form.onsubmit=function(){{dirty=false;}};
+  document.getElementById('vsrProfilePreset').onchange=function(){{if(dirty&&!confirm('Discard unsaved changes and load another profile?')){{this.value=activePresetId;return;}}activePresetId=this.value;dirty=false;var preset=profileById(this.value);if(!preset){{orgs=[];people=[];draw(orgs,orgBox,orgHidden);draw(people,staffBox,staffHidden);document.getElementById('vsrProfileName').value='';document.querySelector('input[name="includeServingVolunteers"]').checked=false;document.querySelector('input[name="includeVolunteerEmail"]').checked=false;document.querySelector('input[name="includeVolunteerPhone"]').checked=false;document.getElementById('vsrPrivacyAcknowledged').checked=false;updateProfileControls(null);updateContactNotice();updateEmailButton();return;}}orgs=preset.orgs.slice(0);people=preset.staff.slice(0);draw(orgs,orgBox,orgHidden);draw(people,staffBox,staffHidden);document.getElementById('vsrProfileName').value=preset.name;document.querySelector('input[name="includeServingVolunteers"]').checked=preset.include_serving_volunteers;document.querySelector('input[name="includeVolunteerEmail"]').checked=preset.include_volunteer_email;document.querySelector('input[name="includeVolunteerPhone"]').checked=preset.include_volunteer_phone;document.getElementById('vsrPrivacyAcknowledged').checked=preset.privacy_acknowledged;updateProfileControls(preset);updateContactNotice();updateEmailButton();}};
+  updateProfileControls(profileById(document.getElementById('vsrProfilePreset').value));
+  updateContactNotice();
   document.querySelector('input[name="includeServingVolunteers"]').onchange=updateEmailButton;
   search(document.getElementById('vsrOrgSearch'),document.getElementById('vsrOrgResults'),'search_involvements',orgs,orgBox,orgHidden);
   search(document.getElementById('vsrPersonSearch'),document.getElementById('vsrPersonResults'),'search_people',people,staffBox,staffHidden);
@@ -820,7 +1026,9 @@ def render_runner(selected_org_ids, staff_ids, start_date, end_date, include_ser
         html_escape(",".join(str(value) for value in parse_ids(staff_ids))),
         org_json, staff_json, email_disabled, html_escape(email_note),
         "true" if email_is_enabled else "false", checked_email, checked_phone,
-        "".join(preset_options), presets_json,
+        "".join(preset_options), presets_json, profile_read_only_note,
+        html_escape(profile_name), checked_privacy, save_disabled, save_label,
+        delete_disabled, contact_notice_style,
     ))
     if report_html:
         parts.append(REPORT_STYLE + report_html)
@@ -837,20 +1045,66 @@ def run_interactive():
     default_start, default_end = current_or_next_weekend(today)
     selected_org_ids = parse_ids(data_value("schedulerIds", data_value("CurrentOrgId", "")))
     staff_ids = parse_ids(data_value("staffPeopleIds", ""))
-    profiles = load_profiles()
+    document = {"version": PROFILE_VERSION, "profiles": []}
+    profiles = []
+    message = ""
+    profile_load_error = None
+    try:
+        document = load_profile_document()
+        profiles = profiles_from_document(document)
+    except Exception as error:
+        profile_load_error = error
+        message = '<div class="alert alert-danger">{0}</div>'.format(html_escape(error))
     selected_profile_id = str(data_value("presetId", "") or "").strip()
     preset = selected_profile(profiles, selected_profile_id)
-    include_serving = str(data_value("includeServingVolunteers", "")).lower() in ("true", "1", "yes", "on")
-    include_email = True if not action else str(data_value("includeVolunteerEmail", "")).lower() in ("true", "1", "yes", "on")
-    include_phone = True if not action else str(data_value("includeVolunteerPhone", "")).lower() in ("true", "1", "yes", "on")
+    profile_name = str(data_value("profileName", "") or "").strip()
+    include_serving = truthy(data_value("includeServingVolunteers", ""))
+    include_email = truthy(data_value("includeVolunteerEmail", ""))
+    include_phone = truthy(data_value("includeVolunteerPhone", ""))
+    privacy_acknowledged = truthy(data_value("privacyAcknowledged", ""))
     start_date = default_start
     end_date = default_end
-    message = ""
     report_html = ""
-    if action in ("preview", "email"):
+    if action:
         try:
             start_date = parse_iso_date(data_value("startDate"))
             end_date = parse_iso_date(data_value("endDate"))
+        except Exception as error:
+            message = '<div class="alert alert-danger">{0}</div>'.format(html_escape(error))
+    if action == "save_profile":
+        try:
+            if profile_load_error is not None:
+                raise profile_load_error
+            saved = save_manual_profile(document)
+            profiles = profiles_from_document(document)
+            selected_profile_id = str(saved["id"])
+            preset = saved
+            profile_name = str(saved["name"])
+            privacy_acknowledged = bool(saved.get("privacy_acknowledged", False))
+            message = '<div class="alert alert-success">Profile saved: {0}</div>'.format(
+                html_escape(saved["name"]))
+        except Exception as error:
+            message = '<div class="alert alert-danger">{0}</div>'.format(html_escape(error))
+    elif action == "delete_profile":
+        try:
+            if profile_load_error is not None:
+                raise profile_load_error
+            delete_manual_profile(document)
+            profiles = profiles_from_document(document)
+            selected_profile_id = ""
+            preset = None
+            profile_name = ""
+            selected_org_ids = []
+            staff_ids = []
+            include_serving = False
+            include_email = False
+            include_phone = False
+            privacy_acknowledged = False
+            message = '<div class="alert alert-success">Saved profile deleted.</div>'
+        except Exception as error:
+            message = '<div class="alert alert-danger">{0}</div>'.format(html_escape(error))
+    elif action in ("preview", "email"):
+        try:
             slots = query_schedule(selected_org_ids, start_date, end_date)
             title = str(preset.get("name")) if preset else "Volunteer Schedule"
             report_html = render_report(
@@ -872,10 +1126,15 @@ def run_interactive():
                 )
         except Exception as error:
             message = '<div class="alert alert-danger">{0}</div>'.format(html_escape(error))
+    if action == "preview":
+        model.Header = ""
+        if report_html:
+            return REPORT_STYLE + report_html
+        return REPORT_STYLE + '<div class="vsr-report">{0}</div>'.format(message)
     return render_runner(
         selected_org_ids, staff_ids, start_date, end_date, include_serving,
         include_email, include_phone, selected_profile_id, profiles,
-        report_html, message,
+        profile_name, privacy_acknowledged, report_html, message,
     )
 
 

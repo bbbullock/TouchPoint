@@ -123,13 +123,26 @@ POST requests must use `/PyScriptForm/`. The report and administration forms
 explicitly post to their `/PyScriptForm/` routes and set `model.Form` so preview,
 search, save, edit, and delete actions render correctly.
 
-The standalone report includes a **Saved Monday profile preset** selector. A
-selected preset fills its Scheduler Involvements, retained staff recipients,
-serving-volunteer delivery choice, and contact-column choices. The date range
-remains independently editable. Loading or previewing a preset does not change
-the saved profile, enable automation, send email, or update duplicate-send
-state; the user must still click **Email current report** to send manually.
-Disabled profiles remain available as clearly labeled manual presets.
+The standalone report includes a **Saved Profile Preset** selector. It includes
+both standalone saved profiles and Monday Batch profiles, with the profile type
+shown in each option. A selected preset fills its Scheduler Involvements, Staff
+Recipients, serving-volunteer delivery choice, and contact-column choices. The
+date range remains independently editable and is never stored in the profile.
+New custom reports exclude volunteer email addresses and mobile phones by
+default. The Contact Information Notice remains hidden unless at least one of
+those contact columns is selected. **Preview report** opens a report-only
+preview in a separate browser tab, without repeating the setup form, so the
+report parameters remain available in the original tab. The preview includes a
+prominent **Print Report** button that creates an isolated printable copy of
+the report, preventing TouchPoint's surrounding page layout from interfering
+with browser print preview. The button is omitted from the printed output.
+
+Users with `Admin` or `ManageGroups` can create, update, and delete shared
+standalone profiles from this page. Profile names must be unique regardless of
+capitalization. Monday Batch profiles are read-only on the standalone page and
+can only be changed in Administration. Loading or previewing any preset does
+not enable automation, send email, or update duplicate-send state; the user
+must still click **Email current report** to send manually.
 
 ## Administration and saved profiles
 
@@ -146,12 +159,26 @@ Delivery settings use compact `VSR.` TouchPoint Settings:
 - `VSR.FailureRecipientPeopleIds`
 
 Profiles are versioned JSON in Text Content named
-`VolunteerScheduleReportProfiles`. Each profile retains selected Scheduler IDs,
-selected staff People IDs, the serving-volunteer delivery option, Monday send
-day, enabled state, independently selected volunteer email/mobile display
-options, and contact-distribution acknowledgement. Existing profiles without
-the new display fields continue to include both contact columns. Current names
-and email addresses are resolved from stable People IDs when a report runs.
+`VolunteerScheduleReportProfiles`. Each profile retains its type, selected
+Scheduler IDs, selected staff People IDs, the serving-volunteer delivery option,
+Monday send day, enabled state, independently selected volunteer email/mobile
+display options, contact-distribution acknowledgement, and last-saved metadata.
+Existing profiles without a profile type are treated as Monday Batch profiles
+for backward compatibility. Current names and email addresses are resolved from
+stable People IDs when a report runs.
+
+Administrators can edit standalone profiles in Administration and convert them
+to Monday Batch profiles. Conversion requires confirmation and does not enable
+the profile automatically. Once converted, the profile remains editable only
+in Administration. Standalone profiles are ignored by Morning Batch even if
+their stored data is edited outside the extension.
+
+New profiles created in Administration are identified as Monday Batch profiles;
+their volunteer email and mobile-phone columns are unchecked by default. An
+existing standalone profile instead displays a permanent conversion option.
+The separate **Send this profile automatically during Monday Morning Batch**
+checkbox is the weekly-delivery on/off switch. Contact-information confirmation
+appears only when email or mobile-phone columns are selected.
 
 Automated-send history is stored in Text Content named
 `VolunteerScheduleReportState`. It records only each profile's last successful

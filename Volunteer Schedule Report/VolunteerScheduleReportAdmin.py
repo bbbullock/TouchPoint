@@ -69,6 +69,13 @@ def truthy(raw):
     return str(raw or "").strip().lower() in ("true", "1", "yes", "y", "on")
 
 
+def profile_kind(profile):
+    value = str(profile.get("profile_type", "") or "").strip().lower()
+    if value == "manual":
+        return "manual"
+    return "monday"
+
+
 def json_for_script(value):
     return json.dumps(value).replace("</", "<\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
@@ -102,7 +109,7 @@ def profile_id(name):
         base = base.replace("--", "-")
     if not base:
         base = "profile"
-    return "{0}-{1}".format(base[:28], datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+    return "{0}-{1}".format(base[:28], datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
 
 
 def selected_profile(document):
@@ -111,6 +118,14 @@ def selected_profile(document):
         if str(profile.get("id", "")) == wanted:
             return profile
     return None
+
+
+def validate_unique_profile_name(profiles, name, current_id):
+    wanted = str(name or "").strip().lower()
+    for profile in profiles:
+        if (str(profile.get("id", "")) != str(current_id or "") and
+                str(profile.get("name", "")).strip().lower() == wanted):
+            raise ValueError("A saved profile with this name already exists.")
 
 
 def search_people():
@@ -197,21 +212,26 @@ def save_profile(document):
     name = posted("profileName")
     if not name:
         raise ValueError("Profile name is required.")
+    existing = selected_profile(document)
+    validate_unique_profile_name(
+        document["profiles"], name, str(existing.get("id", "")) if existing else "")
     scheduler_ids = validate_scheduler_ids(posted("schedulerIds"))
     staff_ids = validate_people_ids(posted("staffPeopleIds"))
     include_volunteers = truthy(posted("includeServingVolunteers"))
     include_email = truthy(posted("includeVolunteerEmail"))
     include_phone = truthy(posted("includeVolunteerPhone"))
-    enabled = truthy(posted("enabled"))
+    is_monday = bool(existing and profile_kind(existing) == "monday") or truthy(
+        posted("makeMondayProfile"))
+    enabled = truthy(posted("enabled")) if is_monday else False
     acknowledged = truthy(posted("privacyAcknowledged"))
-    if not include_volunteers and not staff_ids:
+    if is_monday and not include_volunteers and not staff_ids:
         raise ValueError("Choose serving volunteers and/or at least one retained staff recipient.")
-    if include_volunteers and enabled and (include_email or include_phone) and not acknowledged:
-        raise ValueError("Confirm the contact-information notice before enabling volunteer delivery.")
-    existing = selected_profile(document)
+    if include_volunteers and (include_email or include_phone) and not acknowledged:
+        raise ValueError("Confirm the contact-information notice before saving volunteer delivery with contact details.")
     value = {
         "id": str(existing.get("id")) if existing else profile_id(name),
         "name": name,
+        "profile_type": "monday" if is_monday else "manual",
         "scheduler_ids": scheduler_ids,
         "include_serving_volunteers": include_volunteers,
         "include_volunteer_email": include_email,
@@ -220,6 +240,8 @@ def save_profile(document):
         "enabled": enabled,
         "send_weekday": 0,
         "privacy_acknowledged": acknowledged,
+        "last_saved_people_id": safe_int(getattr(model, "UserPeopleId", 0)),
+        "last_saved_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
     }
     if existing:
         document["profiles"][document["profiles"].index(existing)] = value
@@ -287,7 +309,8 @@ def involvement_data(ids):
 
 
 def profile_card(profile):
-    status = "Enabled" if profile.get("enabled") else "Disabled"
+    kind = profile_kind(profile)
+    status = "Monday Batch · {0}".format("Enabled" if profile.get("enabled") else "Disabled") if kind == "monday" else "Saved Profile · Manual"
     volunteers = "Serving volunteers plus selected staff" if profile.get("include_serving_volunteers") else "Selected staff only"
     contacts = []
     if profile.get("include_volunteer_email", True):
@@ -296,7 +319,7 @@ def profile_card(profile):
         contacts.append("mobile phone")
     contact_text = "Includes " + " and ".join(contacts) if contacts else "Contact details excluded"
     return """
-    <div class="vsra-card"><div><h4>{0}</h4><p>{1} &middot; Monday &middot; {2}</p><p>{3} Scheduler(s), {4} retained staff recipient(s) &middot; {6}</p></div>
+    <div class="vsra-card"><div><h4>{0}</h4><p>{1} &middot; {2}</p><p>{3} Scheduler(s), {4} staff recipient(s) &middot; {6}</p></div>
     <div><form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post" style="display:inline"><input type="hidden" name="profileId" value="{5}"><button class="btn btn-default btn-sm" name="VSRAdminAction" value="edit">Edit</button></form>
     <form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post" style="display:inline" onsubmit="return confirm('Delete this saved report profile?')"><input type="hidden" name="profileId" value="{5}"><button class="btn btn-danger btn-sm" name="VSRAdminAction" value="delete">Delete</button></form></div></div>
     """.format(escape(profile.get("name")), escape(status), escape(volunteers),
@@ -307,13 +330,21 @@ def profile_card(profile):
 
 def render_page(document, edit_profile, message):
     profile = edit_profile or {}
+    is_monday = profile_kind(profile) == "monday" if edit_profile else True
     orgs = involvement_data(profile.get("scheduler_ids", []))
     staff = people_data(profile.get("staff_people_ids", []))
     checked_volunteers = " checked" if profile.get("include_serving_volunteers") else ""
-    checked_email = " checked" if profile.get("include_volunteer_email", True) else ""
-    checked_phone = " checked" if profile.get("include_volunteer_phone", True) else ""
+    checked_email = " checked" if edit_profile and profile.get("include_volunteer_email", True) else ""
+    checked_phone = " checked" if edit_profile and profile.get("include_volunteer_phone", True) else ""
     checked_enabled = " checked" if profile.get("enabled") else ""
     checked_privacy = " checked" if profile.get("privacy_acknowledged") else ""
+    contact_notice_style = "" if checked_email or checked_phone else ' style="display:none"'
+    if not edit_profile:
+        monday_type_control = '<input type="hidden" name="makeMondayProfile" id="makeMondayProfile" value="true"><div class="alert alert-info"><strong>Profile type: Monday Batch</strong><br>This Admin page creates Monday Batch profiles. Leave automated email disabled until the profile is ready.</div>'
+    elif is_monday:
+        monday_type_control = '<input type="hidden" name="makeMondayProfile" id="makeMondayProfile" value="true"><div class="alert alert-info"><strong>Profile type: Monday Batch</strong><br>This profile can be used by the Monday Morning Batch when automated email is enabled below.</div>'
+    else:
+        monday_type_control = '<div class="alert alert-info"><strong>Profile type: Standalone</strong><br>This profile is currently available for manual reports only.</div><label><input type="checkbox" name="makeMondayProfile" id="makeMondayProfile" value="true"> Convert this profile to a Monday Batch profile</label><span class="help-block">Conversion is permanent. It does not enable automated email until you select that option below.</span>'
     email_enabled = " checked" if truthy(current("EmailEnabled")) else ""
     failure_people = people_data(current("FailureRecipientPeopleIds"))
     queued_people = people_data(current("QueuedByPeopleId"))
@@ -325,26 +356,27 @@ def render_page(document, edit_profile, message):
 <div class="vsra-section"><h3>Delivery settings</h3><p>Email remains off until explicitly enabled after live preview validation.</p>
 <form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post"><div class="vsra-grid">
 <div><label>Queued-by person</label><div class="vsra-search"><input class="form-control" id="queuedSearch" placeholder="Search by name, email, or People ID"><div id="queuedResults"></div></div><div class="vsra-selected" id="selectedQueued"></div><input type="hidden" name="QueuedByPeopleId" id="queuedById"></div>
-<div><label>From name</label><input class="form-control" name="FromName" value="{2}"></div>
-<div><label>From address</label><input class="form-control" type="email" name="FromAddress" value="{3}"></div>
-<div><label>Failure recipients</label><div class="vsra-search"><input class="form-control" id="failureSearch" placeholder="Search people"><div id="failureResults"></div></div><div class="vsra-selected" id="selectedFailures"></div><input type="hidden" name="FailureRecipientPeopleIds" id="failureIds" value="{4}"></div>
-<div class="vsra-wide"><label><input type="checkbox" name="EmailEnabled" value="true"{5}> Enable manual and automated email</label></div>
+<div><label>From name</label><input class="form-control" name="FromName" value="{1}"></div>
+<div><label>From address</label><input class="form-control" type="email" name="FromAddress" value="{2}"></div>
+<div><label>Failure recipients</label><div class="vsra-search"><input class="form-control" id="failureSearch" placeholder="Search people"><div id="failureResults"></div></div><div class="vsra-selected" id="selectedFailures"></div><input type="hidden" name="FailureRecipientPeopleIds" id="failureIds" value="{3}"></div>
+<div class="vsra-wide"><label><input type="checkbox" name="EmailEnabled" value="true"{4}> Enable manual and automated email</label></div>
 </div><button class="btn btn-primary" name="VSRAdminAction" value="save_settings">Save delivery settings</button></form></div>
-<div class="vsra-section"><h3>Saved Monday profiles</h3>{6}</div>
-<div class="vsra-section"><h3>{7}</h3>
-<form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post"><input type="hidden" name="profileId" value="{8}"><div class="vsra-grid">
-<div class="vsra-wide"><label>Profile name</label><input class="form-control" name="profileName" value="{9}" required></div>
+<div class="vsra-section"><h3>Saved profiles</h3><p>Standalone profiles can be edited here and converted to Monday Batch profiles. Monday Batch profiles are identified below.</p>{5}</div>
+<div class="vsra-section"><h3>{6}</h3>
+<form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post" id="profileEditorForm" data-was-manual="{19}"><input type="hidden" name="profileId" value="{7}"><div class="vsra-grid">
+<div class="vsra-wide"><label>Profile name</label><input class="form-control" name="profileName" value="{8}" required></div>
 <div class="vsra-wide"><label>Scheduler Involvements</label><div class="vsra-search"><input class="form-control" id="orgSearch" placeholder="Search by name or ID"><div id="orgResults"></div></div><div class="vsra-selected" id="selectedOrgs"></div><input type="hidden" name="schedulerIds" id="schedulerIds"></div>
-<div class="vsra-wide"><label>Retained staff recipients</label><div class="vsra-search"><input class="form-control" id="staffSearch" placeholder="Search by name, email, or People ID"><div id="staffResults"></div></div><div class="vsra-selected" id="selectedStaff"></div><input type="hidden" name="staffPeopleIds" id="staffIds"></div>
-<div class="vsra-wide"><label><input type="checkbox" name="includeServingVolunteers" value="true"{10}> Email all volunteers counted as serving during the report window</label></div>
-<div><label><input type="checkbox" name="includeVolunteerEmail" value="true"{13}> Include volunteer email addresses</label></div>
-<div><label><input type="checkbox" name="includeVolunteerPhone" value="true"{14}> Include volunteer mobile phones</label></div>
-<div class="vsra-wide vsra-privacy"><strong>Contact-information notice</strong><p>Each recipient receives the same complete report. Any contact fields selected above are visible for every listed volunteer.</p><label><input type="checkbox" name="privacyAcknowledged" value="true"{11}> I confirm this profile is authorized to distribute the selected contact details.</label></div>
-<div class="vsra-wide"><label><input type="checkbox" name="enabled" value="true"{12}> Enable this profile for Monday Morning Batch</label></div>
+<div class="vsra-wide"><label>Staff Recipients</label><div class="vsra-search"><input class="form-control" id="staffSearch" placeholder="Search by name, email, or People ID"><div id="staffResults"></div></div><div class="vsra-selected" id="selectedStaff"></div><input type="hidden" name="staffPeopleIds" id="staffIds"></div>
+<div class="vsra-wide"><label><input type="checkbox" name="includeServingVolunteers" value="true"{9}> Email all volunteers counted as serving during the report window</label></div>
+<div><label><input type="checkbox" name="includeVolunteerEmail" id="profileIncludeEmail" value="true"{10}> Include volunteer email addresses</label></div>
+<div><label><input type="checkbox" name="includeVolunteerPhone" id="profileIncludePhone" value="true"{11}> Include volunteer mobile phones</label></div>
+<div class="vsra-wide vsra-privacy" id="profileContactNotice"{20}><strong>Contact Information Notice</strong><p>Each recipient receives the same complete report. Any contact fields selected above are visible for every listed volunteer.</p><label><input type="checkbox" name="privacyAcknowledged" value="true"{12}> I confirm this profile is authorized to distribute the selected contact details.</label></div>
+<div class="vsra-wide">{21}</div>
+<div class="vsra-wide"><label><input type="checkbox" name="enabled" id="profileEnabled" value="true"{14}> Send this profile automatically during Monday Morning Batch</label><span class="help-block">This is the on/off switch for automated weekly email. Saving a Monday Batch profile does not automatically enable it.</span></div>
 </div><button class="btn btn-primary" name="VSRAdminAction" value="save_profile">Save profile</button> <a class="btn btn-default" href="?">Clear</a></form></div></div>
 <script>
 (function(){{
-var orgs={13},staff={14},failures={15},queued={16};
+var orgs={15},staff={16},failures={17},queued={18};
 function esc(v){{return String(v||'').replace(/[&<>"']/g,function(c){{return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c];}});}}
 function draw(items,box,hidden){{box.innerHTML='';items.forEach(function(x,i){{var s=document.createElement('span');s.className='vsra-pill';s.innerHTML=esc(x.name)+' ('+x.id+') <button type="button">&times;</button>';s.querySelector('button').onclick=function(){{items.splice(i,1);draw(items,box,hidden);}};box.appendChild(s);}});hidden.value=items.map(function(x){{return x.id;}}).join(',');}}
 function wire(inputId,resultId,action,items,boxId,hiddenId,single){{var input=document.getElementById(inputId),result=document.getElementById(resultId),box=document.getElementById(boxId),hidden=document.getElementById(hiddenId),timer;draw(items,box,hidden);input.oninput=function(){{clearTimeout(timer);var term=input.value.trim();if(term.length<2){{result.innerHTML='';return;}}timer=setTimeout(function(){{fetch('/PyScriptForm/VolunteerScheduleReportAdmin',{{method:'POST',headers:{{'Content-Type':'application/x-www-form-urlencoded'}},body:'VSRAdminAction='+action+'&term='+encodeURIComponent(term)}}).then(function(r){{return r.json();}}).then(function(d){{result.className='vsra-list';result.innerHTML='';(d.items||[]).forEach(function(x){{var b=document.createElement('button');b.type='button';b.className='vsra-result';b.textContent=x.name+' ('+x.id+')'+(x.email?' — '+x.email:'');b.onclick=function(){{if(single)items.splice(0,items.length);if(!items.some(function(y){{return y.id===x.id;}}))items.push(x);draw(items,box,hidden);result.innerHTML='';input.value='';}};result.appendChild(b);}});}});}},250);}};}}
@@ -352,19 +384,26 @@ wire('orgSearch','orgResults','search_involvements',orgs,'selectedOrgs','schedul
 wire('staffSearch','staffResults','search_people',staff,'selectedStaff','staffIds');
 wire('failureSearch','failureResults','search_people',failures,'selectedFailures','failureIds');
 wire('queuedSearch','queuedResults','search_people',queued,'selectedQueued','queuedById',true);
+function updateMondayControls(){{var monday=document.getElementById('makeMondayProfile'),enabled=document.getElementById('profileEnabled'),isMonday=monday.type==='hidden'||monday.checked;enabled.disabled=!isMonday;if(!isMonday)enabled.checked=false;}}
+function updateContactNotice(){{var email=document.getElementById('profileIncludeEmail'),phone=document.getElementById('profileIncludePhone'),notice=document.getElementById('profileContactNotice');notice.style.display=email.checked||phone.checked?'':'none';}}
+document.getElementById('makeMondayProfile').onchange=updateMondayControls;updateMondayControls();
+document.getElementById('profileIncludeEmail').onchange=updateContactNotice;document.getElementById('profileIncludePhone').onchange=updateContactNotice;updateContactNotice();
+document.getElementById('profileEditorForm').onsubmit=function(){{if(this.getAttribute('data-was-manual')==='true'&&document.getElementById('makeMondayProfile').checked)return confirm('Convert this saved standalone profile to a Monday Batch profile? It will remain editable here, but no longer from the standalone report.');return true;}};
 }})();
 </script>
 """.format(
         message,
-        escape(current("QueuedByPeopleId")), escape(current("FromName")),
-        escape(current("FromAddress")), escape(current("FailureRecipientPeopleIds")),
+        escape(current("FromName")), escape(current("FromAddress")),
+        escape(current("FailureRecipientPeopleIds")),
         email_enabled,
         "".join(profile_card(value) for value in document["profiles"]) or "<p>No profiles saved yet.</p>",
         "Edit profile" if edit_profile else "New profile", escape(profile.get("id", "")),
-        escape(profile.get("name", "")), checked_volunteers, checked_privacy,
-        checked_enabled, json_for_script(orgs), json_for_script(staff),
+        escape(profile.get("name", "")), checked_volunteers, checked_email,
+        checked_phone, checked_privacy, "", checked_enabled,
+        json_for_script(orgs), json_for_script(staff),
         json_for_script(failure_people), json_for_script(queued_people),
-        checked_email, checked_phone,
+        "true" if edit_profile and not is_monday else "false",
+        contact_notice_style, monday_type_control,
     )
 
 

@@ -224,6 +224,8 @@ def save_profile(document):
         posted("makeMondayProfile"))
     enabled = truthy(posted("enabled")) if is_monday else False
     acknowledged = truthy(posted("privacyAcknowledged"))
+    if not include_email and not include_phone:
+        acknowledged = False
     if is_monday and not include_volunteers and not staff_ids:
         raise ValueError("Choose serving volunteers and/or at least one retained staff recipient.")
     if include_volunteers and (include_email or include_phone) and not acknowledged:
@@ -308,6 +310,28 @@ def involvement_data(ids):
     return [{"id": safe_int(row.OrganizationId), "name": str(row.OrganizationName or "")} for row in rows]
 
 
+def posted_profile(document):
+    existing = selected_profile(document)
+    is_monday = bool(existing and profile_kind(existing) == "monday") or truthy(
+        posted("makeMondayProfile"))
+    include_email = truthy(posted("includeVolunteerEmail"))
+    include_phone = truthy(posted("includeVolunteerPhone"))
+    acknowledged = truthy(posted("privacyAcknowledged")) if include_email or include_phone else False
+    return {
+        "id": posted("profileId"),
+        "name": posted("profileName"),
+        "profile_type": "monday" if is_monday else "manual",
+        "scheduler_ids": parse_ids(posted("schedulerIds")),
+        "staff_people_ids": parse_ids(posted("staffPeopleIds")),
+        "include_serving_volunteers": truthy(posted("includeServingVolunteers")),
+        "include_volunteer_email": include_email,
+        "include_volunteer_phone": include_phone,
+        "privacy_acknowledged": acknowledged,
+        "enabled": truthy(posted("enabled")) if is_monday else False,
+        "send_weekday": 0,
+    }
+
+
 def profile_card(profile):
     kind = profile_kind(profile)
     status = "Monday Batch · {0}".format("Enabled" if profile.get("enabled") else "Disabled") if kind == "monday" else "Saved Profile · Manual"
@@ -328,7 +352,7 @@ def profile_card(profile):
                escape(contact_text))
 
 
-def render_page(document, edit_profile, message):
+def render_page(document, edit_profile, message, settings_override=None):
     profile = edit_profile or {}
     is_monday = profile_kind(profile) == "monday" if edit_profile else True
     orgs = involvement_data(profile.get("scheduler_ids", []))
@@ -345,28 +369,35 @@ def render_page(document, edit_profile, message):
         monday_type_control = '<input type="hidden" name="makeMondayProfile" id="makeMondayProfile" value="true"><div class="alert alert-info"><strong>Profile type: Monday Batch</strong><br>This profile can be used by the Monday Morning Batch when automated email is enabled below.</div>'
     else:
         monday_type_control = '<div class="alert alert-info"><strong>Profile type: Standalone</strong><br>This profile is currently available for manual reports only.</div><label><input type="checkbox" name="makeMondayProfile" id="makeMondayProfile" value="true"> Convert this profile to a Monday Batch profile</label><span class="help-block">Conversion is permanent. It does not enable automated email until you select that option below.</span>'
-    email_enabled = " checked" if truthy(current("EmailEnabled")) else ""
-    failure_people = people_data(current("FailureRecipientPeopleIds"))
-    queued_people = people_data(current("QueuedByPeopleId"))
+    settings_values = settings_override or {
+        "EmailEnabled": current("EmailEnabled"),
+        "QueuedByPeopleId": current("QueuedByPeopleId"),
+        "FromAddress": current("FromAddress"),
+        "FromName": current("FromName"),
+        "FailureRecipientPeopleIds": current("FailureRecipientPeopleIds"),
+    }
+    email_enabled = " checked" if truthy(settings_values["EmailEnabled"]) else ""
+    failure_people = people_data(settings_values["FailureRecipientPeopleIds"])
+    queued_people = people_data(settings_values["QueuedByPeopleId"])
     return """
 <style>
-.vsra{{max-width:1180px;margin:20px auto;color:#263746}}.vsra-section{{border:1px solid #d8e0e7;border-radius:8px;padding:18px;margin-bottom:18px;background:#fff}}.vsra-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}.vsra-wide{{grid-column:1/-1}}.vsra-card{{display:flex;justify-content:space-between;gap:15px;border-top:1px solid #e2e8ed;padding:12px 0}}.vsra-selected{{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}}.vsra-pill{{background:#e8f1f8;border-radius:14px;padding:4px 9px}}.vsra-search{{position:relative}}.vsra-list{{position:absolute;z-index:5;width:100%;background:white;border:1px solid #ccd6df;box-shadow:0 3px 10px #999;max-height:220px;overflow:auto}}.vsra-result{{display:block;width:100%;border:0;border-bottom:1px solid #eee;background:#fff;text-align:left;padding:8px}}.vsra-privacy{{border-left:5px solid #b43535;background:#fff3f3;padding:12px}}@media(max-width:700px){{.vsra-grid{{grid-template-columns:1fr}}.vsra-card{{display:block}}}}
+.vsra{{max-width:1180px;margin:20px auto;color:#263746;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:400;line-height:1.42857143}}.vsra button,.vsra input,.vsra select{{font-family:inherit}}.vsra h2{{font-weight:300}}.vsra h3,.vsra h4{{font-weight:400}}.vsra label,.vsra th{{font-weight:600}}.vsra .help-block{{font-size:.9em}}.vsra-section{{border:1px solid #d8e0e7;border-radius:8px;padding:18px;margin-bottom:18px;background:#fff}}.vsra-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}.vsra-wide{{grid-column:1/-1}}.vsra-card{{display:flex;justify-content:space-between;gap:15px;border-top:1px solid #e2e8ed;padding:12px 0}}.vsra-selected{{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}}.vsra-pill{{background:#e8f1f8;border-radius:14px;padding:4px 9px}}.vsra-search{{position:relative}}.vsra-list{{position:absolute;z-index:5;width:100%;background:white;border:1px solid #ccd6df;box-shadow:0 3px 10px #999;max-height:220px;overflow:auto}}.vsra-result{{display:block;width:100%;border:0;border-bottom:1px solid #eee;background:#fff;text-align:left;padding:8px}}.vsra-privacy{{border-left:5px solid #b43535;background:#fff3f3;padding:12px}}@media(max-width:700px){{.vsra-grid{{grid-template-columns:1fr}}.vsra-card{{display:block}}}}
 </style>
 <div class="vsra"><h2>Volunteer Schedule Report Administration</h2>{0}
 <div class="vsra-section"><h3>Delivery settings</h3><p>Email remains off until explicitly enabled after live preview validation.</p>
 <form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post"><div class="vsra-grid">
-<div><label>Queued-by person</label><div class="vsra-search"><input class="form-control" id="queuedSearch" placeholder="Search by name, email, or People ID"><div id="queuedResults"></div></div><div class="vsra-selected" id="selectedQueued"></div><input type="hidden" name="QueuedByPeopleId" id="queuedById"></div>
-<div><label>From name</label><input class="form-control" name="FromName" value="{1}"></div>
-<div><label>From address</label><input class="form-control" type="email" name="FromAddress" value="{2}"></div>
-<div><label>Failure recipients</label><div class="vsra-search"><input class="form-control" id="failureSearch" placeholder="Search people"><div id="failureResults"></div></div><div class="vsra-selected" id="selectedFailures"></div><input type="hidden" name="FailureRecipientPeopleIds" id="failureIds" value="{3}"></div>
+<div><label for="queuedSearch">Queued-by person</label><div class="vsra-search"><input class="form-control" type="search" id="queuedSearch" placeholder="Search by name, email, or People ID" autocomplete="off"><div id="queuedResults" aria-live="polite"></div></div><div class="vsra-selected" id="selectedQueued" aria-live="polite"></div><input type="hidden" name="QueuedByPeopleId" id="queuedById"></div>
+<div><label for="fromName">From name</label><input class="form-control" id="fromName" name="FromName" value="{1}"></div>
+<div><label for="fromAddress">From address</label><input class="form-control" id="fromAddress" type="email" name="FromAddress" value="{2}"></div>
+<div><label for="failureSearch">Failure recipients</label><div class="vsra-search"><input class="form-control" type="search" id="failureSearch" placeholder="Search people" autocomplete="off"><div id="failureResults" aria-live="polite"></div></div><div class="vsra-selected" id="selectedFailures" aria-live="polite"></div><input type="hidden" name="FailureRecipientPeopleIds" id="failureIds" value="{3}"></div>
 <div class="vsra-wide"><label><input type="checkbox" name="EmailEnabled" value="true"{4}> Enable manual and automated email</label></div>
 </div><button class="btn btn-primary" name="VSRAdminAction" value="save_settings">Save delivery settings</button></form></div>
 <div class="vsra-section"><h3>Saved profiles</h3><p>Standalone profiles can be edited here and converted to Monday Batch profiles. Monday Batch profiles are identified below.</p>{5}</div>
 <div class="vsra-section"><h3>{6}</h3>
 <form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post" id="profileEditorForm" data-was-manual="{19}"><input type="hidden" name="profileId" value="{7}"><div class="vsra-grid">
-<div class="vsra-wide"><label>Profile name</label><input class="form-control" name="profileName" value="{8}" required></div>
-<div class="vsra-wide"><label>Scheduler Involvements</label><div class="vsra-search"><input class="form-control" id="orgSearch" placeholder="Search by name or ID"><div id="orgResults"></div></div><div class="vsra-selected" id="selectedOrgs"></div><input type="hidden" name="schedulerIds" id="schedulerIds"></div>
-<div class="vsra-wide"><label>Staff Recipients</label><div class="vsra-search"><input class="form-control" id="staffSearch" placeholder="Search by name, email, or People ID"><div id="staffResults"></div></div><div class="vsra-selected" id="selectedStaff"></div><input type="hidden" name="staffPeopleIds" id="staffIds"></div>
+<div class="vsra-wide"><label for="profileName">Profile name</label><input class="form-control" id="profileName" name="profileName" value="{8}" required></div>
+<div class="vsra-wide"><label for="orgSearch">Scheduler Involvements</label><div class="vsra-search"><input class="form-control" type="search" id="orgSearch" placeholder="Search by name or ID" autocomplete="off"><div id="orgResults" aria-live="polite"></div></div><div class="vsra-selected" id="selectedOrgs" aria-live="polite"></div><input type="hidden" name="schedulerIds" id="schedulerIds"></div>
+<div class="vsra-wide"><label for="staffSearch">Staff Recipients</label><div class="vsra-search"><input class="form-control" type="search" id="staffSearch" placeholder="Search by name, email, or People ID" autocomplete="off"><div id="staffResults" aria-live="polite"></div></div><div class="vsra-selected" id="selectedStaff" aria-live="polite"></div><input type="hidden" name="staffPeopleIds" id="staffIds"></div>
 <div class="vsra-wide"><label><input type="checkbox" name="includeServingVolunteers" value="true"{9}> Email all volunteers counted as serving during the report window</label></div>
 <div><label><input type="checkbox" name="includeVolunteerEmail" id="profileIncludeEmail" value="true"{10}> Include volunteer email addresses</label></div>
 <div><label><input type="checkbox" name="includeVolunteerPhone" id="profileIncludePhone" value="true"{11}> Include volunteer mobile phones</label></div>
@@ -378,14 +409,14 @@ def render_page(document, edit_profile, message):
 (function(){{
 var orgs={15},staff={16},failures={17},queued={18};
 function esc(v){{return String(v||'').replace(/[&<>"']/g,function(c){{return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c];}});}}
-function draw(items,box,hidden){{box.innerHTML='';items.forEach(function(x,i){{var s=document.createElement('span');s.className='vsra-pill';s.innerHTML=esc(x.name)+' ('+x.id+') <button type="button">&times;</button>';s.querySelector('button').onclick=function(){{items.splice(i,1);draw(items,box,hidden);}};box.appendChild(s);}});hidden.value=items.map(function(x){{return x.id;}}).join(',');}}
+function draw(items,box,hidden){{box.innerHTML='';items.forEach(function(x,i){{var s=document.createElement('span');s.className='vsra-pill';s.innerHTML=esc(x.name)+' ('+x.id+') <button type="button" aria-label="Remove '+esc(x.name)+'">&times;</button>';s.querySelector('button').onclick=function(){{items.splice(i,1);draw(items,box,hidden);}};box.appendChild(s);}});hidden.value=items.map(function(x){{return x.id;}}).join(',');}}
 function wire(inputId,resultId,action,items,boxId,hiddenId,single){{var input=document.getElementById(inputId),result=document.getElementById(resultId),box=document.getElementById(boxId),hidden=document.getElementById(hiddenId),timer;draw(items,box,hidden);input.oninput=function(){{clearTimeout(timer);var term=input.value.trim();if(term.length<2){{result.innerHTML='';return;}}timer=setTimeout(function(){{fetch('/PyScriptForm/VolunteerScheduleReportAdmin',{{method:'POST',headers:{{'Content-Type':'application/x-www-form-urlencoded'}},body:'VSRAdminAction='+action+'&term='+encodeURIComponent(term)}}).then(function(r){{return r.json();}}).then(function(d){{result.className='vsra-list';result.innerHTML='';(d.items||[]).forEach(function(x){{var b=document.createElement('button');b.type='button';b.className='vsra-result';b.textContent=x.name+' ('+x.id+')'+(x.email?' — '+x.email:'');b.onclick=function(){{if(single)items.splice(0,items.length);if(!items.some(function(y){{return y.id===x.id;}}))items.push(x);draw(items,box,hidden);result.innerHTML='';input.value='';}};result.appendChild(b);}});}});}},250);}};}}
 wire('orgSearch','orgResults','search_involvements',orgs,'selectedOrgs','schedulerIds');
 wire('staffSearch','staffResults','search_people',staff,'selectedStaff','staffIds');
 wire('failureSearch','failureResults','search_people',failures,'selectedFailures','failureIds');
 wire('queuedSearch','queuedResults','search_people',queued,'selectedQueued','queuedById',true);
 function updateMondayControls(){{var monday=document.getElementById('makeMondayProfile'),enabled=document.getElementById('profileEnabled'),isMonday=monday.type==='hidden'||monday.checked;enabled.disabled=!isMonday;if(!isMonday)enabled.checked=false;}}
-function updateContactNotice(){{var email=document.getElementById('profileIncludeEmail'),phone=document.getElementById('profileIncludePhone'),notice=document.getElementById('profileContactNotice');notice.style.display=email.checked||phone.checked?'':'none';}}
+function updateContactNotice(){{var email=document.getElementById('profileIncludeEmail'),phone=document.getElementById('profileIncludePhone'),notice=document.getElementById('profileContactNotice'),ack=notice.querySelector('input[name="privacyAcknowledged"]'),show=email.checked||phone.checked;notice.style.display=show?'':'none';if(!show)ack.checked=false;}}
 document.getElementById('makeMondayProfile').onchange=updateMondayControls;updateMondayControls();
 document.getElementById('profileIncludeEmail').onchange=updateContactNotice;document.getElementById('profileIncludePhone').onchange=updateContactNotice;updateContactNotice();
 document.getElementById('profileEditorForm').onsubmit=function(){{if(this.getAttribute('data-was-manual')==='true'&&document.getElementById('makeMondayProfile').checked)return confirm('Convert this saved standalone profile to a Monday Batch profile? It will remain editable here, but no longer from the standalone report.');return true;}};
@@ -393,11 +424,12 @@ document.getElementById('profileEditorForm').onsubmit=function(){{if(this.getAtt
 </script>
 """.format(
         message,
-        escape(current("FromName")), escape(current("FromAddress")),
-        escape(current("FailureRecipientPeopleIds")),
+        escape(settings_values["FromName"]), escape(settings_values["FromAddress"]),
+        escape(settings_values["FailureRecipientPeopleIds"]),
         email_enabled,
         "".join(profile_card(value) for value in document["profiles"]) or "<p>No profiles saved yet.</p>",
-        "Edit profile" if edit_profile else "New profile", escape(profile.get("id", "")),
+        "Edit profile" if edit_profile and profile.get("id") else "New profile",
+        escape(profile.get("id", "")),
         escape(profile.get("name", "")), checked_volunteers, checked_email,
         checked_phone, checked_privacy, "", checked_enabled,
         json_for_script(orgs), json_for_script(staff),
@@ -420,6 +452,7 @@ def run_admin():
     message = ""
     document = {"version": PROFILE_VERSION, "profiles": []}
     edit_profile = None
+    settings_override = None
     try:
         document = load_document()
         if current_action == "save_settings":
@@ -439,10 +472,21 @@ def run_admin():
         message = '<div class="alert alert-danger">{0}</div>'.format(escape(error))
         try:
             document = load_document()
-            edit_profile = selected_profile(document)
+            if current_action == "save_profile":
+                edit_profile = posted_profile(document)
+            else:
+                edit_profile = selected_profile(document)
+            if current_action == "save_settings":
+                settings_override = {
+                    "EmailEnabled": posted("EmailEnabled"),
+                    "QueuedByPeopleId": posted("QueuedByPeopleId"),
+                    "FromAddress": posted("FromAddress"),
+                    "FromName": posted("FromName"),
+                    "FailureRecipientPeopleIds": posted("FailureRecipientPeopleIds"),
+                }
         except Exception:
             pass
-    return render_page(document, edit_profile, message)
+    return render_page(document, edit_profile, message, settings_override)
 
 
 def emit_form(content):

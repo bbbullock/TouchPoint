@@ -461,7 +461,7 @@ function printVolunteerScheduleReport() {
         if include_phone:
             headings.append("Mobile phone")
         parts.append('<table><thead><tr>{0}</tr></thead><tbody>'.format(
-            "".join("<th>{0}</th>".format(html_escape(value)) for value in headings)
+            "".join('<th scope="col">{0}</th>'.format(html_escape(value)) for value in headings)
         ))
         for volunteer in slot["volunteers"]:
             status_css = "vsr-status-" + volunteer["status"].lower().replace(" ", "-")
@@ -501,14 +501,16 @@ function printVolunteerScheduleReport() {
 
 REPORT_STYLE = """
 <style id="vsrReportStyles">
-.vsr-shell,.vsr-report{max-width:1180px;margin:20px auto;color:#24313d}
+.vsr-shell,.vsr-report{max-width:1180px;margin:20px auto;color:#24313d;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:400;line-height:1.42857143}
+.vsr-shell button,.vsr-shell input,.vsr-shell select,.vsr-report button{font-family:inherit}
+.vsr-shell h2,.vsr-report h2{font-weight:300}.vsr-shell h3,.vsr-shell h4,.vsr-report h3,.vsr-report h4{font-weight:400}.vsr-shell label,.vsr-slot th{font-weight:600}.vsr-shell .help-block{font-size:.9em}
 .vsr-panel{border:1px solid #d8e0e7;border-radius:8px;padding:18px;background:#fff;margin-bottom:18px}
 .vsr-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.vsr-grid .wide{grid-column:1/-1}
 .vsr-privacy{border-left:5px solid #b43535;background:#fff3f3;padding:12px}.vsr-privacy p{margin:4px 0 8px}
 .vsr-selected{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.vsr-pill{background:#e8f1f8;border-radius:14px;padding:4px 9px}
 .vsr-results{position:relative}.vsr-results-list{position:absolute;z-index:4;background:#fff;border:1px solid #ccd6df;width:100%;box-shadow:0 3px 10px #999;max-height:220px;overflow:auto}
 .vsr-result{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #eee;background:#fff;padding:8px}.vsr-result:hover{background:#f3f7fa}
-.vsr-report-head{margin-bottom:12px}.vsr-summary{border-collapse:separate;border-spacing:0;margin:0 0 20px;table-layout:fixed;width:100%}.vsr-summary td{background:#eef3f6;border:1px solid #d8e0e7;border-right:0;overflow-wrap:anywhere;padding:12px;vertical-align:top;width:20%}.vsr-summary td:first-child{border-radius:7px 0 0 7px}.vsr-summary td:last-child{border-radius:0 7px 7px 0;border-right:1px solid #d8e0e7}.vsr-summary strong{display:block;font-size:26px;margin-bottom:4px}.vsr-summary span{display:block;font-weight:bold}.vsr-summary-confirmed{background:#dff2e4!important}.vsr-summary-awaiting{background:#fff0c7!important}.vsr-summary-vacancy,.vsr-summary-warning{background:#fde2e2!important}.vsr-actions{margin:10px 0 18px;text-align:right}.vsr-print-button{font-weight:bold;min-width:160px;padding:10px 20px}
+.vsr-report-head{margin-bottom:12px}.vsr-summary{border-collapse:separate;border-spacing:0;margin:0 0 20px;table-layout:fixed;width:100%}.vsr-summary td{background:#eef3f6;border:1px solid #d8e0e7;border-right:0;overflow-wrap:anywhere;padding:12px;vertical-align:top;width:20%}.vsr-summary td:first-child{border-radius:7px 0 0 7px}.vsr-summary td:last-child{border-radius:0 7px 7px 0;border-right:1px solid #d8e0e7}.vsr-summary strong{display:block;font-size:26px;font-weight:600;margin-bottom:4px}.vsr-summary span{display:block;font-weight:600}.vsr-summary-confirmed{background:#dff2e4!important}.vsr-summary-awaiting{background:#fff0c7!important}.vsr-summary-vacancy,.vsr-summary-warning{background:#fde2e2!important}.vsr-actions{margin:10px 0 18px;text-align:right}.vsr-print-button{font-weight:600;min-width:160px;padding:10px 20px}
 .vsr-org{page-break-inside:avoid}.vsr-org h3{border-bottom:3px solid #2b6f98;padding-bottom:5px}.vsr-org h4{margin:18px 0 8px}
 .vsr-slot{border:1px solid #d7dee5;border-left:5px solid #37845a;margin:8px 0 14px;padding:10px;page-break-inside:avoid}.vsr-slot-open{border-left-color:#b43535}.vsr-slot-title{display:flex;justify-content:space-between;gap:12px;margin-bottom:7px}
 .vsr-slot table{border-collapse:collapse;width:100%;font-size:13px}.vsr-slot th,.vsr-slot td{border-top:1px solid #e1e6ea;padding:6px;text-align:left}.vsr-badge{display:inline-block;padding:2px 7px;border-radius:10px;background:#edf1f4}.vsr-status-committed,.vsr-status-substitute{background:#dff2e4;color:#245c36}.vsr-status-scheduled{background:#fff0c7;color:#735100}.vsr-status-find-sub{background:#fde2e2;color:#8b1f1f}.vsr-gap{background:#fde2e2;border:1px solid #d99b9b;border-radius:5px;color:#8b1f1f;display:inline-block;margin-top:9px;padding:6px 10px}.vsr-find-sub{margin-top:7px;color:#8b1f1f}
@@ -757,6 +759,8 @@ def save_manual_profile(document):
     include_email = truthy(data_value("includeVolunteerEmail", ""))
     include_phone = truthy(data_value("includeVolunteerPhone", ""))
     acknowledged = truthy(data_value("privacyAcknowledged", ""))
+    if not include_email and not include_phone:
+        acknowledged = False
     if include_volunteers and (include_email or include_phone) and not acknowledged:
         raise ValueError("Confirm the contact-information notice before saving volunteer delivery with contact details.")
     value = {
@@ -968,23 +972,23 @@ def render_runner(selected_org_ids, staff_ids, start_date, end_date, include_ser
     parts.append("""
 <form action="/PyScriptForm/VolunteerScheduleReport" method="post" id="vsrForm">
   <div class="vsr-grid">
-    <div class="wide"><label>Saved Profile Preset</label>
+    <div class="wide"><label for="vsrProfilePreset">Saved Profile Preset</label>
       <select class="form-control" name="presetId" id="vsrProfilePreset">{12}</select>
-      <span class="help-block">Selecting a preset fills this form only. It does not send email or change the saved profile.</span></div>
-    <div class="wide" id="vsrProfileNotice">{14}</div>
-    <div class="wide"><label>Profile name</label><input class="form-control" name="profileName" id="vsrProfileName" value="{15}" maxlength="100"></div>
-    <div class="wide"><label>Scheduler Involvements</label><div class="vsr-results">
+      <span class="help-block" id="vsrPresetHelp">Selecting a preset fills this form only. It does not send email or change the saved profile.</span></div>
+    <div class="wide" id="vsrProfileNotice" aria-live="polite">{14}</div>
+    <div class="wide"><label for="vsrProfileName">Profile name</label><input class="form-control" name="profileName" id="vsrProfileName" value="{15}" maxlength="100"></div>
+    <div class="wide"><label for="vsrOrgSearch">Scheduler Involvements</label><div class="vsr-results">
       <input type="search" class="form-control" id="vsrOrgSearch" placeholder="Search by Scheduler name or ID" autocomplete="off">
-      <div id="vsrOrgResults"></div></div><div class="vsr-selected" id="vsrSelectedOrgs"></div>
+      <div id="vsrOrgResults" aria-live="polite"></div></div><div class="vsr-selected" id="vsrSelectedOrgs" aria-live="polite"></div>
       <input type="hidden" name="schedulerIds" id="vsrSchedulerIds" value="{0}"></div>
-    <div><label>Start date</label><input class="form-control" type="date" name="startDate" value="{1}" required></div>
-    <div><label>End date</label><input class="form-control" type="date" name="endDate" value="{2}" required></div>
+    <div><label for="vsrStartDate">Start date</label><input class="form-control" id="vsrStartDate" type="date" name="startDate" value="{1}" required></div>
+    <div><label for="vsrEndDate">End date</label><input class="form-control" id="vsrEndDate" type="date" name="endDate" value="{2}" required></div>
     <div><label><input type="checkbox" name="includeVolunteerEmail" id="vsrIncludeEmail" value="true"{10}> Include volunteer email addresses</label></div>
     <div><label><input type="checkbox" name="includeVolunteerPhone" id="vsrIncludePhone" value="true"{11}> Include volunteer mobile phones</label></div>
     <div class="wide"><label><input type="checkbox" name="includeServingVolunteers" value="true"{3}> Email all volunteers serving in this range</label></div>
-    <div class="wide"><label>Staff Recipients</label><div class="vsr-results">
+    <div class="wide"><label for="vsrPersonSearch">Staff Recipients</label><div class="vsr-results">
       <input type="search" class="form-control" id="vsrPersonSearch" placeholder="Search staff by name, email, or People ID" autocomplete="off">
-      <div id="vsrPersonResults"></div></div><div class="vsr-selected" id="vsrSelectedStaff"></div>
+      <div id="vsrPersonResults" aria-live="polite"></div></div><div class="vsr-selected" id="vsrSelectedStaff" aria-live="polite"></div>
       <input type="hidden" name="staffPeopleIds" id="vsrStaffIds" value="{4}"></div>
     <div class="wide vsr-privacy" id="vsrContactNotice"{20}><strong>Contact Information Notice</strong><p>Each recipient receives the same complete report. Any selected contact fields are visible for every listed volunteer.</p><label><input type="checkbox" name="privacyAcknowledged" id="vsrPrivacyAcknowledged" value="true"{16}> I confirm this profile is authorized to distribute the selected contact details.</label></div>
   </div>
@@ -1001,7 +1005,7 @@ def render_runner(selected_org_ids, staff_ids, start_date, end_date, include_ser
   function esc(v){{return String(v||'').replace(/[&<>"']/g,function(c){{return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c];}});}}
   var emailEnabled={9};
   function updateEmailButton(){{var button=document.getElementById('vsrEmailButton'),serving=document.querySelector('input[name="includeServingVolunteers"]'),staff=document.getElementById('vsrStaffIds');if(button)button.disabled=!emailEnabled||!(serving.checked||staff.value);}}
-  function updateContactNotice(){{var email=document.getElementById('vsrIncludeEmail'),phone=document.getElementById('vsrIncludePhone'),notice=document.getElementById('vsrContactNotice');notice.style.display=email.checked||phone.checked?'':'none';}}
+  function updateContactNotice(){{var email=document.getElementById('vsrIncludeEmail'),phone=document.getElementById('vsrIncludePhone'),notice=document.getElementById('vsrContactNotice'),ack=document.getElementById('vsrPrivacyAcknowledged'),show=email.checked||phone.checked;notice.style.display=show?'':'none';if(!show)ack.checked=false;}}
   function profileById(id){{var i;for(i=0;i<presets.length;i++)if(presets[i].id===id)return presets[i];return null;}}
   function updateProfileControls(preset){{var readOnly=preset&&preset.read_only,save=document.getElementById('vsrSaveProfileButton'),del=document.getElementById('vsrDeleteProfileButton'),notice=document.getElementById('vsrProfileNotice');save.disabled=!!readOnly;save.textContent=preset&&!readOnly?'Update profile':'Save as new profile';del.disabled=!preset||!!readOnly;notice.innerHTML=readOnly?'<div class="alert alert-info">This is a Monday Batch profile. You may use or adjust it for this report, but it can only be edited or deleted in Volunteer Schedule Report Administration.</div>':'';}}
   function draw(items, box, hidden){{box.innerHTML='';items.forEach(function(x,i){{var s=document.createElement('span');s.className='vsr-pill';s.innerHTML=esc(x.name)+' <button type="button" aria-label="Remove">&times;</button>';s.querySelector('button').onclick=function(){{items.splice(i,1);draw(items,box,hidden);}};box.appendChild(s);}});hidden.value=items.map(function(x){{return x.id;}}).join(',');updateEmailButton();}}

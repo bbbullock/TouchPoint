@@ -10,6 +10,19 @@ The report is read-only. It never changes people, Involvements, meetings,
 assignments, commitments, or attendance. It writes only its own configuration
 and successful automated-send state in TouchPoint.
 
+## TouchPoint standards
+
+This project follows the parent `../AGENTS.md` TouchPoint Project Standards and
+`../TOUCHPOINT_UI_STANDARDS.md`. Its operational and Admin interfaces use the
+shared conventions for responsive panels, plain-language controls, safe
+defaults, progressive disclosure, stable-ID selectors, accessible labels and
+live regions, conditional privacy notices, report-only previews, isolated
+printing, and server-side validation. The operational app, Admin app, report,
+email body, preview, and print view use the standard `"Helvetica Neue",
+Helvetica, Arial, sans-serif` stack with light/regular headings and selectively
+heavier labels and operational exceptions. There are no project-specific UI
+exceptions at this time.
+
 ## Files
 
 - `VolunteerScheduleReportDiagnostic.sql` — primary temporary, read-only

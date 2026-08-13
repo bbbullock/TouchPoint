@@ -1,5 +1,9 @@
 # Volunteer Schedule Report Instructions
 
+This project follows the parent `../AGENTS.md` TouchPoint Project Standards and
+`../TOUCHPOINT_UI_STANDARDS.md`. The requirements below are additional,
+project-specific safeguards.
+
 - Keep this project confined to this directory. Do not stage or edit sibling
   TouchPoint projects.
 - TouchPoint scripts run in the hosted IronPython environment. Do not use

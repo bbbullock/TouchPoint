@@ -226,8 +226,8 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
         self.assertIn("Alex Able", report)
         self.assertNotIn("alex.able@example.org", report)
         self.assertNotIn("555-0100", report)
-        self.assertNotIn("<th>Email</th>", report)
-        self.assertNotIn("<th>Mobile phone</th>", report)
+        self.assertNotIn(">Email</th>", report)
+        self.assertNotIn(">Mobile phone</th>", report)
 
     def test_report_contact_columns_are_independent(self):
         row = self.row(1, 1, "Alex Able")
@@ -238,8 +238,19 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
         )
         self.assertIn("alex.able@example.org", report)
         self.assertNotIn("555-0100", report)
-        self.assertIn("<th>Email</th>", report)
-        self.assertNotIn("<th>Mobile phone</th>", report)
+        self.assertIn('<th scope="col">Email</th>', report)
+        self.assertNotIn(">Mobile phone</th>", report)
+
+    def test_preview_print_button_is_prominent(self):
+        report = self.ns["render_report"](
+            [], datetime.date(2026, 8, 7), datetime.date(2026, 8, 9),
+            "Weekend Schedule", True, False, False,
+        )
+        self.assertIn("btn btn-primary btn-lg vsr-print-button", report)
+        self.assertIn(">Print Report</button>", report)
+        self.assertIn("printVolunteerScheduleReport()", report)
+        self.assertIn("Print Volunteer Schedule Report", report)
+        self.assertIn("report.outerHTML", report)
 
     def test_embedded_json_cannot_close_script_tag(self):
         encoded = self.ns["json_for_script"]([{"name": "</script><script>bad()</script>"}])
@@ -260,6 +271,12 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
         self.assertEqual(self.ns["selected_profile"](profiles, "two")["name"],
                          "Second")
         self.assertIsNone(self.ns["selected_profile"](profiles, "missing"))
+
+    def test_profile_kind_preserves_legacy_monday_profiles(self):
+        profile_kind = self.ns["profile_kind"]
+        self.assertEqual(profile_kind({"id": "legacy"}), "monday")
+        self.assertEqual(profile_kind({"profile_type": "monday"}), "monday")
+        self.assertEqual(profile_kind({"profile_type": "manual"}), "manual")
 
     def test_sql_uses_half_open_parameterized_window(self):
         sql = self.ns["SCHEDULE_SQL"]
@@ -329,6 +346,73 @@ class DeploymentSafetyTests(unittest.TestCase):
         self.assertIn("profile_presets(profiles)", source)
         self.assertIn("Selecting a preset fills this form only", source)
         self.assertIn(".vsr-gap{background:#fde2e2", source)
+        self.assertIn('"profile_type": "manual"', source)
+        self.assertIn('profile_kind(profile) != "monday"', source)
+        self.assertIn("Monday Batch profiles can only be edited", source)
+        self.assertIn("Saved Profile Preset", source)
+        self.assertIn('font-family:"Helvetica Neue",Helvetica,Arial,sans-serif', source)
+        self.assertIn('.vsr-shell h2,.vsr-report h2{font-weight:300}', source)
+        self.assertIn('label for="vsrProfilePreset"', source)
+        self.assertIn('aria-live="polite"', source)
+        self.assertIn("if not include_email and not include_phone", source)
+        self.assertIn('if action == "preview":', source)
+        self.assertIn('model.Header = ""', source)
+        self.assertIn("return REPORT_STYLE + report_html", source)
+
+    def test_standalone_save_creates_manual_profile_without_dates_or_contacts(self):
+        module = types.ModuleType("cgi")
+        module.escape = html.escape
+        sys.modules["cgi"] = module
+
+        class SaveData:
+            VSRAction = "save_profile"
+            presetId = ""
+            profileName = "Weekend Staff"
+            schedulerIds = "315"
+            staffPeopleIds = ""
+            includeServingVolunteers = ""
+            includeVolunteerEmail = ""
+            includeVolunteerPhone = ""
+            privacyAcknowledged = ""
+            startDate = "2026-08-14"
+            endDate = "2026-08-16"
+
+        class SaveModel:
+            UserPeopleId = 77
+
+            def __init__(self):
+                self.saved = ""
+
+            def Setting(self, key, default=""):
+                return default
+
+            def TextContent(self, key):
+                return ""
+
+            def WriteContentText(self, key, value, notes):
+                self.saved = value
+
+            def UserIsInRole(self, role):
+                return True
+
+        class SaveQuery:
+            def QuerySql(self, sql, *args, **kwargs):
+                if "FROM Organizations" in sql:
+                    return [Row(OrganizationId=315, OrganizationName="Media Ministry")]
+                return []
+
+        model = SaveModel()
+        namespace = {"model": model, "Data": SaveData(), "q": SaveQuery()}
+        with contextlib.redirect_stdout(io.StringIO()):
+            exec(compile(REPORT_PATH.read_text(encoding="utf-8"),
+                         str(REPORT_PATH), "exec"), namespace)
+        saved = __import__("json").loads(model.saved)["profiles"][0]
+        self.assertEqual(saved["profile_type"], "manual")
+        self.assertFalse(saved["include_volunteer_email"])
+        self.assertFalse(saved["include_volunteer_phone"])
+        self.assertEqual(saved["last_saved_people_id"], 77)
+        self.assertNotIn("start_date", saved)
+        self.assertNotIn("end_date", saved)
 
     def test_admin_requires_privacy_confirmation_and_stable_ids(self):
         source = ADMIN_PATH.read_text(encoding="utf-8")
@@ -340,13 +424,34 @@ class DeploymentSafetyTests(unittest.TestCase):
         self.assertIn("model.Form = content", source)
         self.assertIn('"include_volunteer_email": include_email', source)
         self.assertIn('"include_volunteer_phone": include_phone', source)
+        self.assertIn('"profile_type": "monday" if is_monday else "manual"', source)
+        self.assertIn("validate_unique_profile_name", source)
+        self.assertIn("Convert this saved standalone profile", source)
+        self.assertIn('profile_kind(existing) == "monday"', source)
+        self.assertIn("Conversion is permanent", source)
+        self.assertIn("def posted_profile(document):", source)
+        self.assertIn('label for="profileName"', source)
+        self.assertIn('aria-label="Remove \'', source)
+        self.assertIn('font-family:"Helvetica Neue",Helvetica,Arial,sans-serif', source)
+        self.assertIn('.vsra h2{{font-weight:300}}', source)
 
     def test_interactive_pages_render_with_empty_mock_data(self):
         report = self.render_script_with_empty_touchpoint(REPORT_PATH)
         admin = self.render_script_with_empty_touchpoint(ADMIN_PATH)
         diagnostic = self.render_script_with_empty_touchpoint(DIAGNOSTIC_PATH)
         self.assertIn("Volunteer Schedule Report", report)
-        self.assertIn("Saved Monday profiles", admin)
+        self.assertIn("Saved profiles", admin)
+        self.assertIn("Profile type: Monday Batch", admin)
+        self.assertIn("Send this profile automatically during Monday Morning Batch", admin)
+        report_form = report.split('<form action="/PyScriptForm/VolunteerScheduleReport"')[1]
+        self.assertNotIn('name="includeVolunteerEmail" value="true" checked', report_form)
+        self.assertNotIn('name="includeVolunteerPhone" value="true" checked', report_form)
+        self.assertIn('value="preview" formtarget="_blank"', report_form)
+        self.assertIn('id="vsrContactNotice" style="display:none"', report_form)
+        admin_form = admin.split('id="profileEditorForm"')[1]
+        self.assertNotIn('id="profileIncludeEmail" value="true" checked', admin_form)
+        self.assertNotIn('id="profileIncludePhone" value="true" checked', admin_form)
+        self.assertIn('id="profileContactNotice" style="display:none"', admin_form)
         self.assertIn("Run diagnostic", diagnostic)
         self.assertIn("Enter the ID", diagnostic)
 

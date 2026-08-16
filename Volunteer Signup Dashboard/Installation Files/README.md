@@ -1,4 +1,4 @@
-# Volunteer Signup Dashboard v1.0.0
+# Volunteer Signup Dashboard v1.0.3
 
 `Installation Files/VolunteerSignupDashboard.py` is one independently
 deployable TouchPoint Python script for reusable volunteer-signup dashboards.
@@ -50,6 +50,9 @@ MemberTag yet.
   preview, save, and delete shared configurations.
 - Saved configurations use stable profile IDs and are stored as versioned JSON
   in Text Content named `VolunteerSignupDashboardProfiles`.
+- Selecting a saved configuration immediately loads it into the existing setup
+  frame. There is no separate Load step or new tab; unsaved changes still
+  require confirmation before they are replaced.
 - Saving a loaded configuration with its existing name updates that
   configuration. Changing the name before saving creates a new configuration
   and leaves the previously loaded configuration intact.
@@ -202,7 +205,7 @@ Before general use, an Administrator should verify the following in TouchPoint:
 
 ## User interface standards
 
-Version 1.0.0 follows `/Users/brianbullock/TouchPoint/TOUCHPOINT_UI_STANDARDS.md`:
+Version 1.0.3 follows `/Users/brianbullock/TouchPoint/TOUCHPOINT_UI_STANDARDS.md`:
 
 - one centered 1,180-pixel shell, bordered panels, and a responsive two-column
   grid;
@@ -225,6 +228,27 @@ membership-status rules during live validation.
 
 ## Version history
 
+### 1.0.3 — 2026-08-16
+
+- Saved configurations now load through an in-place request that replaces only
+  the dashboard panel. The TouchPoint page shell, navigation, browser URL, and
+  surrounding styling remain unchanged.
+- Displays an in-page error if the saved configuration cannot be loaded rather
+  than falling back to the form-only endpoint.
+
+### 1.0.2 — 2026-08-16
+
+- Automatic saved-configuration loading now follows TouchPoint's normal form
+  submission event path, preserving the standard page shell, navigation, and
+  styling instead of navigating directly to the form fragment.
+
+### 1.0.1 — 2026-08-16
+
+- Saved configurations load immediately when selected and remain in the same
+  setup frame.
+- Preserves the unsaved-change warning and provides a no-JavaScript fallback
+  without restoring the routine Load step.
+
 ### 1.0.0 — 2026-08-15
 
 - First production release.
@@ -244,7 +268,7 @@ The script creates or updates only this extension-owned Text Content:
 - `VolunteerSignupDashboardProfiles`
 
 There are no Settings keys, Morning Batch hooks, email-delivery actions, or
-separate processing-state records in v1.0.0.
+separate processing-state records in v1.0.3.
 
 To disable the app, remove its Custom Report link or remove/rename the Python
 script. To roll back saved configuration changes, restore an earlier version of

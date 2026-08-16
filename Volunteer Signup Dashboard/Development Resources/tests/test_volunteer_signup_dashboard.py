@@ -277,7 +277,6 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
         self.assertIn("function clearQuestions()", source)
         self.assertIn("questionList.innerHTML=", source)
         self.assertIn('values["question_keys"] = [item["key"] for item in questions]', source)
-        self.assertIn('value="load_profile" formnovalidate', source)
         self.assertIn('value="preview" formtarget="_blank"', source)
         self.assertIn('class="btn btn-primary" onclick="window.print()">Print Report', source)
         self.assertIn('Discard unsaved changes and load another configuration?', source)
@@ -297,17 +296,37 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
 
     def test_app_version_is_tracked_in_code_header_and_displayed(self):
         source = SCRIPT.read_text()
-        self.assertEqual("1.0.0", self.app.APP_VERSION)
-        self.assertIn("# Version: 1.0.0", source)
+        self.assertEqual("1.0.3", self.app.APP_VERSION)
+        self.assertIn("# Version: 1.0.3", source)
         self.assertIn("# Written by: Brian Bullock with Codex assistance", source)
         self.assertIn("# Email: bbbullock@mac.com", source)
         self.assertIn("# GitHub: https://github.com/bbbullock/TouchPoint", source)
         self.assertIn("# Version history", source)
+        self.assertIn("# 1.0.3 (2026-08-16)", source)
+        self.assertIn("# 1.0.2 (2026-08-16)", source)
+        self.assertIn("# 1.0.1 (2026-08-16)", source)
         self.assertIn("# 1.0.0 (2026-08-15)", source)
         html = self.app.render_page(self.app.empty_document(),
                                     self.app.profile_form_values(), [])
-        self.assertIn("Volunteer Signup Dashboard <small>v1.0.0</small>", html)
+        self.assertIn("Volunteer Signup Dashboard <small>v1.0.3</small>", html)
         self.assertNotIn("beta", html.lower())
+
+    def test_saved_configuration_selection_loads_in_same_frame(self):
+        html = self.app.render_page(self.app.empty_document(),
+                                    self.app.profile_form_values(), [])
+        self.assertIn('method="post" target="_self" id="vsudForm"', html)
+        self.assertIn("preset.onchange=function()", html)
+        self.assertIn("body.set('VSUDAction','load_profile')", html)
+        self.assertIn("fetch(form.action,", html)
+        self.assertIn("current.innerHTML=next.innerHTML", html)
+        self.assertIn("initializeVolunteerSignupDashboard();", html)
+        self.assertNotIn("form.submit();", html)
+        self.assertNotIn("profileLoader.click();", html)
+        self.assertIn("Discard unsaved changes and load another configuration?", html)
+        self.assertNotIn('>Load</button>', html)
+        self.assertIn("JavaScript is required to load a saved configuration", html)
+        self.assertIn("The saved configuration could not be loaded. Please try again.", html)
+        self.assertEqual(1, html.count('formtarget="_blank"'))
 
     def test_initial_ui_state_follows_safe_defaults(self):
         values = self.app.profile_form_values()

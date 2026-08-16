@@ -1,13 +1,25 @@
 #Roles=Access
 # -*- coding: utf-8 -*-
 # Application: Volunteer Signup Dashboard
-# Version: 1.0.0
-# Released: 2026-08-15
+# Version: 1.0.3
+# Released: 2026-08-16
 # Written by: Brian Bullock with Codex assistance
 # Email: bbbullock@mac.com
 # GitHub: https://github.com/bbbullock/TouchPoint
 #
 # Version history
+# 1.0.3 (2026-08-16)
+# - Loads saved profiles in place without navigating to the form-only endpoint.
+# - Preserves the TouchPoint page shell, navigation, URL, and dashboard styling.
+#
+# 1.0.2 (2026-08-16)
+# - Preserves the TouchPoint navigation shell during automatic profile loads.
+# - Uses TouchPoint's normal form-submit event path instead of direct navigation.
+#
+# 1.0.1 (2026-08-16)
+# - Loads a saved configuration immediately when selected, in the same frame.
+# - Retains the unsaved-change warning and a no-JavaScript loading fallback.
+#
 # 1.0.0 (2026-08-15)
 # - Builds reusable dashboards from Registration Form subgroup questions.
 # - Supports Involvement lookup, multi-question profiles, and profile deletion.
@@ -15,7 +27,7 @@
 # - Reveals alphabetized volunteer details through accessible shift controls.
 # - Uses #Roles=Access as the sole interactive authorization authority.
 
-"""Volunteer Signup Dashboard v1.0.0 for TouchPoint.
+"""Volunteer Signup Dashboard v1.0.3 for TouchPoint.
 
 Registration Form options are the authoritative shift catalog. MemberTags and
 OrgMemMemTags are consulted only to attach people who have actually selected a
@@ -31,7 +43,7 @@ import json
 import re
 
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.3"
 CONTENT_NAME = "VolunteerSignupDashboardProfiles"
 DOCUMENT_VERSION = 1
 MAX_OPTIONS = 200
@@ -700,10 +712,10 @@ STYLE = """
 <style>
 .vsud{max-width:1180px;margin:0 auto;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}.vsud-panel{background:#fff;border:1px solid #d9dde3;border-radius:6px;padding:18px;margin-bottom:18px}
 .vsud-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.vsud-wide{grid-column:1/-1}.vsud label{font-weight:600;display:block}
-.vsud-help,.vsud .help-block{color:#5f6772;font-size:.9em;margin-top:4px}.vsud-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.vsud-profile-row{display:flex;gap:8px;align-items:end}
-.vsud-profile-row>div{flex:1}.vsud-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}.vsud-metric{border:1px solid #d9dde3;border-radius:5px;padding:10px;text-align:center}.vsud-metric strong{font-size:1.5em;display:block}.vsud-metric-danger{border-color:#b42318;background:#fdecec;color:#8a1c13}
+.vsud-help,.vsud .help-block{color:#5f6772;font-size:.9em;margin-top:4px}.vsud-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.vsud-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}.vsud-metric{border:1px solid #d9dde3;border-radius:5px;padding:10px;text-align:center}.vsud-metric strong{font-size:1.5em;display:block}.vsud-metric-danger{border-color:#b42318;background:#fdecec;color:#8a1c13}
 .vsud table{width:100%;border-collapse:collapse}.vsud th,.vsud td{padding:8px;border:1px solid #d9dde3;vertical-align:top}.vsud th{background:#f4f6f8}.vsud-date-row th{background:#244b6b;color:#fff;font-size:1.08em;text-align:left;padding:10px 12px}.vsud-date-row:not(:first-child) th{border-top:8px solid #fff}.vsud-zero{background:#fff6e5}.vsud-vacancy,.vsud-over{background:#fdecec}.vsud-subgroup{color:#5f6772;font-size:.85em}.vsud-members{font-size:.92em}.vsud-volunteer-toggle{white-space:nowrap}.vsud-toggle-arrow{display:inline-block;margin-left:3px}.vsud-volunteer-toggle[aria-expanded="true"] .vsud-toggle-arrow{transform:rotate(180deg)}.vsud-volunteer-detail td{background:#eef5fb;padding:10px 16px 12px;font-size:.84em}.vsud-volunteer-detail.vsud-collapsed{display:none}.vsud-volunteer-heading{color:#244b6b;font-size:.9em;font-weight:600;margin-bottom:6px;text-transform:uppercase}.vsud-volunteer-list{columns:2;column-fill:balance;column-gap:32px;margin:0;padding-left:22px}.vsud-volunteer-list li{break-inside:avoid;margin-bottom:4px;padding-left:2px;overflow-wrap:anywhere}.vsud-private{border-left:4px solid #c98600;padding:8px 12px;background:#fff8e8}.vsud-results{position:relative}.vsud-results-list{position:absolute;z-index:10;background:#fff;border:1px solid #bbb;width:100%;max-height:240px;overflow:auto}.vsud-result{display:block;width:100%;padding:8px;text-align:left;border:0;border-bottom:1px solid #eee;background:#fff}.vsud-result:hover{background:#eef5fb}.vsud-selected{padding:8px;margin-top:5px;background:#f4f6f8;border-radius:4px}.vsud-pill{display:inline-flex;align-items:center;gap:7px;background:#e9f1f7;border:1px solid #bfd0de;border-radius:14px;padding:4px 9px}.vsud-pill button{border:0;background:transparent;font-weight:bold}.vsud-questions label{font-weight:400;margin:5px 0}.no-print{margin-bottom:14px}
-@media(max-width:760px){.vsud-grid{grid-template-columns:1fr}.vsud-wide{grid-column:auto}.vsud-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.vsud-profile-row{display:block}.vsud-profile-row .btn{margin-top:8px}}
+@media(max-width:760px){.vsud-grid{grid-template-columns:1fr}.vsud-wide{grid-column:auto}.vsud-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.vsud-volunteer-list{columns:1}.vsud-volunteer-toggle{white-space:normal}}
 @media print{body *{visibility:hidden!important}.vsud-report,.vsud-report *{visibility:visible!important}.vsud-report{position:absolute;left:0;top:0;width:100%}.vsud-controls,.vsud-message,.no-print,.vsud-volunteer-toggle{display:none!important}.vsud-volunteer-detail{display:table-row!important}.vsud{max-width:none}.vsud-panel{border:0;padding:0}.vsud table{font-size:10pt}.vsud tr{break-inside:avoid;page-break-inside:avoid}}
 </style>
@@ -847,10 +859,10 @@ def render_page(document, values, questions, message="", report_html=""):
     parts = [STYLE, '<div class="vsud"><div class="vsud-panel vsud-controls"><h2>Volunteer Signup Dashboard <small>v{0}</small></h2>'.format(APP_VERSION)]
     parts.append(message)
     parts.append("""
-<form action="/PyScriptForm/VolunteerSignupDashboard" method="post" id="vsudForm">
+<form action="/PyScriptForm/VolunteerSignupDashboard" method="post" target="_self" id="vsudForm">
   <input type="hidden" name="profileId" value="{0}">
   <input type="hidden" name="questionKeys" id="vsudQuestionKeys" value="{1}">
-  <div class="vsud-profile-row vsud-wide"><div><label for="vsudProfilePreset">Saved configuration</label><select class="form-control" name="selectedProfileId" id="vsudProfilePreset">{2}</select></div><button class="btn btn-default" name="VSUDAction" value="load_profile" formnovalidate>Load</button></div>
+  <div class="vsud-wide"><label for="vsudProfilePreset">Saved configuration</label><select class="form-control" name="selectedProfileId" id="vsudProfilePreset">{2}</select><noscript><div class="alert alert-info" style="margin-top:8px">JavaScript is required to load a saved configuration without leaving the TouchPoint page.</div></noscript></div>
   <hr>
   <div class="vsud-grid">
     <div><label>Configuration name</label><input class="form-control" name="profileName" maxlength="100" value="{3}" required></div>
@@ -873,11 +885,12 @@ def render_page(document, values, questions, message="", report_html=""):
   <button class="btn btn-danger" name="VSUDAction" value="delete_profile"{16}>Delete loaded configuration</button>
 </form>
 <script>
-(function(){{
+function initializeVolunteerSignupDashboard(){{
  var hidden=document.getElementById('vsudQuestionKeys'),checks=document.querySelectorAll('.vsud-question'),questionList=document.getElementById('vsudQuestionList');
+ if(!hidden||!questionList){{return;}}
  function syncQuestions(){{var keys=[],i;for(i=0;i<checks.length;i++)if(checks[i].checked)keys.push(checks[i].value);hidden.value=keys.join(',');}}
  for(var i=0;i<checks.length;i++)checks[i].onchange=syncQuestions;
- var form=document.getElementById('vsudForm'),input=document.getElementById('vsudOrgSearch'),results=document.getElementById('vsudOrgResults'),id=document.getElementById('vsudOrganizationId'),name=document.getElementById('vsudOrganizationName'),selected=document.getElementById('vsudSelectedOrg'),emails=document.getElementById('vsudIncludeEmails'),names=document.getElementById('vsudIncludeNames'),notice=document.getElementById('vsudContactNotice'),ack=document.getElementById('vsudPrivacyAcknowledged'),timer,dirty=false;
+ var form=document.getElementById('vsudForm'),preset=document.getElementById('vsudProfilePreset'),input=document.getElementById('vsudOrgSearch'),results=document.getElementById('vsudOrgResults'),id=document.getElementById('vsudOrganizationId'),name=document.getElementById('vsudOrganizationName'),selected=document.getElementById('vsudSelectedOrg'),emails=document.getElementById('vsudIncludeEmails'),names=document.getElementById('vsudIncludeNames'),notice=document.getElementById('vsudContactNotice'),ack=document.getElementById('vsudPrivacyAcknowledged'),timer,dirty=false;
  function esc(v){{return String(v||'').replace(/[&<>"']/g,function(c){{return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c];}});}}
  function clearQuestions(){{hidden.value='';questionList.innerHTML='<div class="vsud-help">Choose an Involvement, then inspect its Registration Form.</div>';}}
  function clearOrg(){{id.value='';name.value='';selected.innerHTML='<span class="vsud-help">No Involvement selected</span>';clearQuestions();dirty=true;}}
@@ -886,9 +899,12 @@ def render_page(document, values, questions, message="", report_html=""):
  wireRemove();emails.onchange=updatePrivacy;names.onchange=updatePrivacy;updatePrivacy();
  form.oninput=function(e){{if(e.target.id!=='vsudOrgSearch')dirty=true;}};
  form.onchange=function(e){{if(e.target.id!=='vsudProfilePreset')dirty=true;}};
- form.onsubmit=function(e){{var action=e.submitter?e.submitter.value:'';if(action==='load_profile'&&dirty&&!confirm('Discard unsaved changes and load another configuration?'))return false;if(action!=='preview')dirty=false;return true;}};
+ function showProfileLoadError(){{var error=document.getElementById('vsudProfileLoadError');if(!error){{error=document.createElement('div');error.id='vsudProfileLoadError';error.className='alert alert-danger';form.parentNode.insertBefore(error,form);}}error.textContent='The saved configuration could not be loaded. Please try again.';preset.disabled=false;form.removeAttribute('aria-busy');}}
+ preset.onchange=function(){{var previous=form.elements.profileId.value||'';if(dirty&&!confirm('Discard unsaved changes and load another configuration?')){{preset.value=previous;return;}}var fields=new FormData(form),body=new URLSearchParams();fields.forEach(function(value,key){{body.append(key,value);}});body.set('VSUDAction','load_profile');dirty=false;preset.disabled=true;form.setAttribute('aria-busy','true');fetch(form.action,{{method:'POST',credentials:'same-origin',headers:{{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'}},body:body.toString()}}).then(function(response){{if(!response.ok){{throw new Error('Profile load failed');}}return response.text();}}).then(function(markup){{var holder=document.createElement('div');holder.innerHTML=markup;var next=holder.querySelector('.vsud'),current=document.querySelector('.vsud');if(!next||!current){{throw new Error('Profile response was incomplete');}}current.innerHTML=next.innerHTML;initializeVolunteerSignupDashboard();}}).catch(function(){{preset.value=previous;showProfileLoadError();}});}};
+ form.onsubmit=function(e){{var action=e.submitter?e.submitter.value:'';if(action!=='preview')dirty=false;return true;}};
  input.oninput=function(){{clearTimeout(timer);var term=input.value.trim();if(term.length<2&&!/^\\d+$/.test(term)){{results.innerHTML='';return;}}timer=setTimeout(function(){{fetch('/PyScriptForm/VolunteerSignupDashboard',{{method:'POST',headers:{{'Content-Type':'application/x-www-form-urlencoded'}},body:'VSUDAction=search_involvements&term='+encodeURIComponent(term)}}).then(function(r){{return r.json();}}).then(function(d){{var items=d.items||[];results.className='vsud-results-list';results.innerHTML='';if(!items.length){{results.innerHTML='<div class="vsud-result">No matching Involvements.</div>';return;}}items.forEach(function(x){{var b=document.createElement('button');b.type='button';b.className='vsud-result';b.textContent=x.name+' ('+x.id+')';b.onclick=function(){{id.value=x.id;name.value=x.name;selected.innerHTML='<span class="vsud-pill">'+esc(x.name)+' (ID: '+x.id+') <button type="button" id="vsudRemoveOrg" aria-label="Remove selected Involvement">&times;</button></span>';wireRemove();results.innerHTML='';input.value='';clearQuestions();dirty=true;}};results.appendChild(b);}});}});}},250);}};
-}})();
+}}
+initializeVolunteerSignupDashboard();
 </script>
 """.format(
         html_escape(values["profile_id"]), html_escape(",".join(values["question_keys"])), "".join(options),

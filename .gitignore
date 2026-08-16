@@ -1,3 +1,7 @@
 .DS_Store
 *.pyc
 __pycache__/
+
+# Local TouchPoint/Codex working standards (not published)
+/AGENTS.md
+/TOUCHPOINT_UI_STANDARDS.md

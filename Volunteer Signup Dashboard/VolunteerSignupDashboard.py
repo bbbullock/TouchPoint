@@ -1,7 +1,21 @@
-#Roles=Admin,OrgLeadersOnly,Staff
+#Roles=Access
 # -*- coding: utf-8 -*-
+# Application: Volunteer Signup Dashboard
+# Version: 1.0.0
+# Released: 2026-08-15
+# Written by: Brian Bullock with Codex assistance
+# Email: bbbullock@mac.com
+# GitHub: https://github.com/bbbullock/TouchPoint
+#
+# Version history
+# 1.0.0 (2026-08-15)
+# - Builds reusable dashboards from Registration Form subgroup questions.
+# - Supports Involvement lookup, multi-question profiles, and profile deletion.
+# - Groups shifts chronologically and conditionally displays capacity columns.
+# - Reveals alphabetized volunteer details through accessible shift controls.
+# - Uses #Roles=Access as the sole interactive authorization authority.
 
-"""Volunteer Signup Dashboard v1.0 beta for TouchPoint.
+"""Volunteer Signup Dashboard v1.0.0 for TouchPoint.
 
 Registration Form options are the authoritative shift catalog. MemberTags and
 OrgMemMemTags are consulted only to attach people who have actually selected a
@@ -17,7 +31,7 @@ import json
 import re
 
 
-APP_VERSION = "1.0-beta"
+APP_VERSION = "1.0.0"
 CONTENT_NAME = "VolunteerSignupDashboardProfiles"
 DOCUMENT_VERSION = 1
 MAX_OPTIONS = 200
@@ -804,7 +818,7 @@ if(label){label.textContent=expanded?"View volunteers":"Hide volunteers";}
     return "".join(parts)
 
 
-def render_page(document, values, questions, is_admin, message="", report_html=""):
+def render_page(document, values, questions, message="", report_html=""):
     profiles = profiles_from_document(document)
     options = ['<option value="">New configuration</option>']
     for profile in sorted(profiles, key=lambda item: str(item["name"]).lower()):
@@ -829,11 +843,9 @@ def render_page(document, values, questions, is_admin, message="", report_html="
             html_escape(values["organization_name"]), values["organization_id"])
     else:
         selected_org_html = '<span class="vsud-help">No Involvement selected</span>'
-    delete_disabled = "" if is_admin and values["profile_id"] else " disabled"
-    access_note = "" if is_admin else '<div class="alert alert-info">You may load, preview, and save configurations. Administrator access is required to delete them.</div>'
+    delete_disabled = "" if values["profile_id"] else " disabled"
     parts = [STYLE, '<div class="vsud"><div class="vsud-panel vsud-controls"><h2>Volunteer Signup Dashboard <small>v{0}</small></h2>'.format(APP_VERSION)]
     parts.append(message)
-    parts.append(access_note)
     parts.append("""
 <form action="/PyScriptForm/VolunteerSignupDashboard" method="post" id="vsudForm">
   <input type="hidden" name="profileId" value="{0}">
@@ -911,12 +923,6 @@ def values_for_build(values):
 
 
 def run_app():
-    is_admin = bool(model.UserIsInRole("Admin"))
-    is_operator = bool(model.UserIsInRole("OrgLeadersOnly") or
-                       model.UserIsInRole("Staff"))
-    if not (is_admin or is_operator):
-        return '<div class="alert alert-danger">Admin, OrgLeadersOnly, or Staff access is required.</div>'
-
     action = requested_action()
     if action == "preview":
         model.Header = ""
@@ -931,7 +937,7 @@ def run_app():
     except Exception as error:
         document = empty_document()
         message = '<div class="alert alert-danger">{0}</div>'.format(html_escape(error))
-        return render_page(document, values, questions, is_admin, message, report_html)
+        return render_page(document, values, questions, message, report_html)
 
     try:
         if action == "load_profile":
@@ -981,8 +987,6 @@ def run_app():
                     report_html = render_report(profile, involvement, chosen_questions, shifts)
                     return report_html
         elif action == "delete_profile":
-            if not is_admin:
-                raise ValueError("Administrator access is required to delete configurations.")
             profile_id = str(data_value("profileId", "") or "").strip()
             deleted = delete_profile_from_document(document, profile_id, data_value("deleteConfirmation", ""))
             write_document(document)
@@ -997,7 +1001,7 @@ def run_app():
                 questions = load_questions(values["organization_id"], values["organization_name"])
             except Exception:
                 pass
-    return render_page(document, values, questions, is_admin, message, report_html)
+    return render_page(document, values, questions, message, report_html)
 
 
 def emit_form(content):

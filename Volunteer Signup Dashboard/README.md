@@ -1,4 +1,4 @@
-# Volunteer Signup Dashboard v1.0 beta
+# Volunteer Signup Dashboard v1.0.0
 
 `VolunteerSignupDashboard.py` is one independently deployable TouchPoint
 Python script for reusable volunteer-signup dashboards.
@@ -9,7 +9,7 @@ option from the selected `RegQuestion.Options` JSON and then joins existing
 appears with zero volunteers even when TouchPoint has not created its subgroup
 MemberTag yet.
 
-## Beta behavior
+## Current behavior
 
 - Administrators can inspect an Involvement's Registration Form questions,
   preview dashboards, and create, update, or delete saved configurations.
@@ -34,8 +34,9 @@ MemberTag yet.
   Expanded names appear in a smaller type size within a full-width list beneath
   the selected shift. Names are alphabetized by last name and flow down the
   first of two balanced columns before continuing at the top of the second.
-- Users with `Admin`, `OrgLeadersOnly`, or `Staff` can load, preview, and save
-  configurations. Configuration deletion remains restricted to Administrators.
+- The first-line `#Roles=Access` directive is the sole interactive
+  authorization gate. Users who pass that TouchPoint role check can load,
+  preview, save, and delete shared configurations.
 - Saved configurations use stable profile IDs and are stored as versioned JSON
   in Text Content named `VolunteerSignupDashboardProfiles`.
 - Saving a loaded configuration with its existing name updates that
@@ -72,7 +73,7 @@ The complete shift list and current limits are reread from the Registration
 Form each time the report runs. Editing the Form therefore updates the report
 without rewriting the saved configuration.
 
-Existing beta profiles remain loadable. A profile saved before the Contact
+Existing v1 profiles remain loadable. A profile saved before the Contact
 Information Notice was introduced must be reviewed and confirmed before it can
 again display volunteer email addresses.
 
@@ -91,11 +92,19 @@ again display volunteer email addresses.
 Optionally add the app to **Special Content > Text > CustomReports**:
 
 ```xml
-<Report name="VolunteerSignupDashboard" type="PyScript" role="OrgLeadersOnly,Staff" />
+<Report name="VolunteerSignupDashboard" type="PyScript" role="Access" />
 ```
 
-Administrators can also open the direct URL even if they do not have an
-operational role assigned for the menu link.
+The Custom Reports role controls menu visibility separately; keep it aligned
+with the script's `#Roles=Access` directive.
+
+### Project-specific authorization exception
+
+This dashboard intentionally departs from the workspace default that reserves
+configuration management for Administrators. At the user's direction,
+`#Roles=Access` is the sole interactive authorization gate, and every admitted
+user can create, update, and delete this extension's shared configurations.
+The app does not duplicate that role check with `model.UserIsInRole(...)`.
 
 All form submissions use `/PyScriptForm/VolunteerSignupDashboard`; do not
 change the installed script name without changing those form actions.
@@ -120,7 +129,7 @@ that signup.
 ### Date grouping and sorting
 
 The date must be at the beginning of the subgroup Value, before its first
-colon. The beta recognizes these forms:
+colon. Version 1.0.0 recognizes these forms:
 
 - `509:900am` for May 9 at 9:00 AM;
 - `0509:9am` for May 9 at 9:00 AM;
@@ -141,12 +150,12 @@ Registration Form but are not selectable in this dashboard.
 
 ### Show stored subgroup values and questions
 
-This display option is enabled by default for beta troubleshooting. When it is
+This display option is enabled by default for troubleshooting. When it is
 cleared, the report hides both the stored subgroup Value and the Registration
 Form question name, including question names in the report footnote. Shift
 labels, dates, counts, limits, and volunteer information are unaffected.
 
-## Required live beta checks
+## Required live validation
 
 Local tests cannot confirm tenant-specific Registration Form schema or data.
 Before general use, an Administrator should verify the following in TouchPoint:
@@ -171,18 +180,17 @@ Before general use, an Administrator should verify the following in TouchPoint:
     button; opening and closing it reveals and hides the complete name list.
 12. Print preview contains every volunteer name, including shifts that were
     collapsed on screen.
-13. An `OrgLeadersOnly` or `Staff` user can preview and save but cannot delete.
-14. An Administrator can save, reload, update, and delete a disposable beta
+13. An `Access` user can load, preview, save, and delete a disposable test
     configuration.
-15. Email addresses remain hidden unless deliberately enabled.
-16. Preview opens in a separate tab containing no setup form.
-17. **Print Report** opens a print preview containing only the report; inspect
+14. Email addresses remain hidden unless deliberately enabled.
+15. Preview opens in a separate tab containing no setup form.
+16. **Print Report** opens a print preview containing only the report; inspect
     the browser's print-preview thumbnails at both portrait and landscape
     widths before production use.
 
 ## User interface standards
 
-This beta follows `/Users/brianbullock/TouchPoint/TOUCHPOINT_UI_STANDARDS.md`:
+Version 1.0.0 follows `/Users/brianbullock/TouchPoint/TOUCHPOINT_UI_STANDARDS.md`:
 
 - one centered 1,180-pixel shell, bordered panels, and a responsive two-column
   grid;
@@ -199,9 +207,23 @@ narrow-screen, and browser print-preview appearance must still be verified in
 the live TouchPoint tenant; local source and rendering tests cannot validate
 the tenant theme or surrounding navigation markup.
 
-The beta intentionally filters deceased and archived people but does not apply
-an Organization MemberType filter. Confirm the tenant's desired membership
-status rules during beta testing before production release.
+The report intentionally filters deceased and archived people but does not
+apply an Organization MemberType filter. Confirm the tenant's desired
+membership-status rules during live validation.
+
+## Version history
+
+### 1.0.0 — 2026-08-15
+
+- First production release.
+- Registration Form subgroup questions remain the authoritative shift catalog,
+  including shifts with no signups and no database MemberTag yet.
+- Includes Involvement lookup, multiple subgroup-question selection, reusable
+  shared configurations, configuration deletion, and safe save-as-new behavior.
+- Groups shifts by date and time, hides unused capacity columns, and provides
+  accessible expandable volunteer lists sorted by last name.
+- Uses the shared TouchPoint typography and `#Roles=Access` as the sole
+  interactive authorization gate.
 
 ## Text Content and rollback
 
@@ -210,7 +232,7 @@ The script creates or updates only this extension-owned Text Content:
 - `VolunteerSignupDashboardProfiles`
 
 There are no Settings keys, Morning Batch hooks, email-delivery actions, or
-separate processing-state records in v1.0 beta.
+separate processing-state records in v1.0.0.
 
 To disable the app, remove its Custom Report link or remove/rename the Python
 script. To roll back saved configuration changes, restore an earlier version of

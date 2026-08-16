@@ -267,13 +267,10 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
         self.assertEqual(3, summary["shift_signups"])
         self.assertEqual(1, summary["vacancies"])
 
-    def test_script_contains_touchpoint_runtime_guards(self):
+    def test_script_uses_touchpoint_directive_as_authorization_gate(self):
         source = SCRIPT.read_text()
-        self.assertIn("#Roles=Admin,OrgLeadersOnly,Staff", source)
-        self.assertIn('model.UserIsInRole("Admin")', source)
-        self.assertIn('model.UserIsInRole("OrgLeadersOnly")', source)
-        self.assertIn('model.UserIsInRole("Staff")', source)
-        self.assertNotIn('model.UserIsInRole("Lutefisk")', source)
+        self.assertIn("#Roles=Access", source)
+        self.assertNotIn("model.UserIsInRole", source)
         self.assertIn('action="/PyScriptForm/VolunteerSignupDashboard"', source)
         self.assertIn('value="inspect" formnovalidate', source)
         self.assertIn('id="vsudQuestionList"', source)
@@ -298,23 +295,33 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
         self.assertNotIn("model.AddMember", source)
         self.assertNotIn("model.Update", source)
 
-    def test_initial_and_non_admin_ui_states_follow_safe_defaults(self):
+    def test_app_version_is_tracked_in_code_header_and_displayed(self):
+        source = SCRIPT.read_text()
+        self.assertEqual("1.0.0", self.app.APP_VERSION)
+        self.assertIn("# Version: 1.0.0", source)
+        self.assertIn("# Written by: Brian Bullock with Codex assistance", source)
+        self.assertIn("# Email: bbbullock@mac.com", source)
+        self.assertIn("# GitHub: https://github.com/bbbullock/TouchPoint", source)
+        self.assertIn("# Version history", source)
+        self.assertIn("# 1.0.0 (2026-08-15)", source)
+        html = self.app.render_page(self.app.empty_document(),
+                                    self.app.profile_form_values(), [])
+        self.assertIn("Volunteer Signup Dashboard <small>v1.0.0</small>", html)
+        self.assertNotIn("beta", html.lower())
+
+    def test_initial_ui_state_follows_safe_defaults(self):
         values = self.app.profile_form_values()
-        initial = self.app.render_page(self.app.empty_document(), values, [], True)
+        initial = self.app.render_page(self.app.empty_document(), values, [])
         self.assertIn('name="includeMemberEmails" id="vsudIncludeEmails" value="true">', initial)
         self.assertIn('id="vsudContactNotice" style="display:none"', initial)
         self.assertIn('name="privacyAcknowledged"', initial)
-
-        operator = self.app.render_page(self.app.empty_document(), values, [], False)
-        self.assertIn("You may load, preview, and save configurations", operator)
-        self.assertIn("Administrator access is required to delete", operator)
-        self.assertIn('value="save_profile">Save configuration', operator)
-        self.assertNotIn('value="save_profile" disabled', operator)
-        self.assertIn('value="delete_profile" disabled', operator)
+        self.assertIn('value="save_profile">Save configuration', initial)
+        self.assertNotIn('value="save_profile" disabled', initial)
+        self.assertIn('value="delete_profile" disabled', initial)
 
     def test_inspect_button_is_beneath_involvement_and_before_questions(self):
         html = self.app.render_page(self.app.empty_document(),
-                                    self.app.profile_form_values(), [], True)
+                                    self.app.profile_form_values(), [])
         selected_position = html.index('id="vsudSelectedOrg"')
         inspect_position = html.index('value="inspect"')
         questions_position = html.index('id="vsudQuestionList"')
@@ -332,7 +339,7 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
         values["question_keys"] = ["Id:8"]
         html = self.app.render_page(
             self.app.empty_document(), values,
-            [{"key": "Id:8", "label": "Old shifts", "option_count": 2}], True)
+            [{"key": "Id:8", "label": "Old shifts", "option_count": 2}])
 
         self.assertIn("function clearQuestions()", html)
         self.assertIn("input.value='';clearQuestions();dirty=true;", html)
@@ -359,9 +366,6 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
             def __init__(self):
                 self.content = ""
 
-            def UserIsInRole(self, role):
-                return role == "Admin"
-
             def TextContent(self, key):
                 return self.content
 
@@ -372,7 +376,7 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
             def QuerySql(self, sql, parameters):
                 if "FROM dbo.Organizations" in sql:
                     return [SimpleNamespace(OrganizationId=42,
-                                            OrganizationName="Beta Signup",
+                                            OrganizationName="Sample Signup",
                                             OrganizationStatusId=30)]
                 if "FROM dbo.RegQuestion" in sql:
                     return [
@@ -394,8 +398,8 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
         app.model = FakeModel()
         app.q = FakeQuery()
         app.Data = SimpleNamespace(
-            VSUDAction="save_profile", profileId="", profileName="Beta",
-            reportTitle="Beta Dashboard", organizationId="42",
+            VSUDAction="save_profile", profileId="", profileName="Sample",
+            reportTitle="Sample Dashboard", organizationId="42",
             questionKeys="Id:8,Id:9",
             excludedValues="", includeMemberNames="true",
             includeMemberEmails="", showSubgroupNames="true")
@@ -406,32 +410,32 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
         self.assertEqual(["Id:8", "Id:9"], document["profiles"][0]["question_keys"])
 
         app.Data.profileId = profile_id
-        app.Data.profileName = "Second Beta"
-        app.Data.reportTitle = "Second Beta Dashboard"
+        app.Data.profileName = "Second Sample"
+        app.Data.reportTitle = "Second Sample Dashboard"
         second_saved_html = app.run_app()
         self.assertIn("Configuration saved", second_saved_html)
         document = json.loads(app.model.content)
-        self.assertEqual(["Beta", "Second Beta"],
+        self.assertEqual(["Sample", "Second Sample"],
                          [profile["name"] for profile in document["profiles"]])
-        self.assertIn(">Beta</option>", second_saved_html)
-        self.assertIn(">Second Beta</option>", second_saved_html)
+        self.assertIn(">Sample</option>", second_saved_html)
+        self.assertIn(">Second Sample</option>", second_saved_html)
 
         second_profile_id = [profile["id"] for profile in document["profiles"]
-                             if profile["name"] == "Second Beta"][0]
+                             if profile["name"] == "Second Sample"][0]
         app.Data.profileId = second_profile_id
-        app.Data.reportTitle = "Updated Second Beta Dashboard"
+        app.Data.reportTitle = "Updated Second Sample Dashboard"
         updated_html = app.run_app()
         self.assertIn("Configuration saved", updated_html)
         document = json.loads(app.model.content)
         self.assertEqual(2, len(document["profiles"]))
-        self.assertEqual("Updated Second Beta Dashboard",
+        self.assertEqual("Updated Second Sample Dashboard",
                          [profile for profile in document["profiles"]
                           if profile["id"] == second_profile_id][0]["report_title"])
 
         app.Data.VSUDAction = "preview"
         app.Data.profileId = second_profile_id
         preview_html = app.run_app()
-        self.assertIn("Updated Second Beta Dashboard", preview_html)
+        self.assertIn("Updated Second Sample Dashboard", preview_html)
         self.assertNotIn('<form action="/PyScriptForm/VolunteerSignupDashboard"', preview_html)
         self.assertIn("Print Report", preview_html)
         self.assertIn("Afternoon", preview_html)
@@ -446,12 +450,12 @@ class VolunteerSignupDashboardTests(unittest.TestCase):
                                    deleteConfirmation=second_profile_id)
         deleted_html = app.run_app()
         self.assertIn("Configuration deleted", deleted_html)
-        self.assertEqual(["Beta"], [profile["name"] for profile in
+        self.assertEqual(["Sample"], [profile["name"] for profile in
                                     json.loads(app.model.content)["profiles"]])
 
-        app.Data = SimpleNamespace(VSUDAction="search_involvements", term="Beta")
+        app.Data = SimpleNamespace(VSUDAction="search_involvements", term="Sample")
         search_result = json.loads(app.run_app())
-        self.assertEqual([{"id": 42, "name": "Beta Signup"}], search_result["items"])
+        self.assertEqual([{"id": 42, "name": "Sample Signup"}], search_result["items"])
 
     def test_multiple_questions_are_combined_in_selected_order(self):
         questions = [

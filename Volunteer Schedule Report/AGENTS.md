@@ -12,6 +12,10 @@ project-specific safeguards.
   Settings/Text Content configuration and successful-send state.
 - Email must default to disabled. Validate previews against the live Scheduler
   before enabling delivery.
+- The standalone report is available to users with `Access`. Administration
+  and Morning Batch profile execution remain restricted to `Admin`. Rely on
+  the first-line `#Roles=Access` directive for interactive authorization; do
+  not duplicate that role in a runtime `model.UserIsInRole` check.
 - Each Python script must remain independently deployable in TouchPoint.
 - Run `python3 -m unittest discover -s tests -v`, compilation checks, and
   `git diff --check` before handoff.

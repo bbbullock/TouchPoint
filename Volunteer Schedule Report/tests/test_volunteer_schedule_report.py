@@ -296,7 +296,7 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
 
 
 class DeploymentSafetyTests(unittest.TestCase):
-    def render_script_with_empty_touchpoint(self, path):
+    def render_script_with_empty_touchpoint(self, path, roles=None):
         module = types.ModuleType("cgi")
         module.escape = html.escape
         sys.modules["cgi"] = module
@@ -316,7 +316,7 @@ class DeploymentSafetyTests(unittest.TestCase):
                 return ""
 
             def UserIsInRole(self, role):
-                return True
+                return True if roles is None else role in roles
 
         class MockQuery:
             def QuerySql(self, *args, **kwargs):
@@ -330,12 +330,15 @@ class DeploymentSafetyTests(unittest.TestCase):
 
     def test_report_defaults_email_off_and_uses_state(self):
         source = REPORT_PATH.read_text(encoding="utf-8")
+        self.assertIn('APP_VERSION = "1.0.0"', source)
+        self.assertIn('# Written by: Brian Bullock with Codex assistance', source)
         self.assertIn('bool_setting("EmailEnabled", False)', source)
         self.assertIn("VolunteerScheduleReportState", source)
         self.assertIn('state["sent"].get(profile_id) == window_key', source)
         self.assertIn('#Roles=Access', source)
-        self.assertIn('is_admin or is_manager', source)
+        self.assertNotIn('model.UserIsInRole("Access")', source)
         self.assertIn('runtime_action == "run_profiles" and not is_admin', source)
+        self.assertNotIn('model.UserIsInRole("ManageGroups")', source)
         self.assertIn("o.RegistrationTypeId = 22", source)
         self.assertIn('action="/PyScriptForm/VolunteerScheduleReport"', source)
         self.assertIn("model.Form = content", source)
@@ -416,6 +419,8 @@ class DeploymentSafetyTests(unittest.TestCase):
 
     def test_admin_requires_privacy_confirmation_and_stable_ids(self):
         source = ADMIN_PATH.read_text(encoding="utf-8")
+        self.assertIn('APP_VERSION = "1.0.0"', source)
+        self.assertIn('# Written by: Brian Bullock with Codex assistance', source)
         self.assertIn('#Roles=Admin', source)
         self.assertIn('not acknowledged', source)
         self.assertIn('"staff_people_ids": staff_ids', source)
@@ -439,7 +444,8 @@ class DeploymentSafetyTests(unittest.TestCase):
         report = self.render_script_with_empty_touchpoint(REPORT_PATH)
         admin = self.render_script_with_empty_touchpoint(ADMIN_PATH)
         diagnostic = self.render_script_with_empty_touchpoint(DIAGNOSTIC_PATH)
-        self.assertIn("Volunteer Schedule Report", report)
+        self.assertIn("Volunteer Schedule Report <small>v1.0.0</small>", report)
+        self.assertIn("Volunteer Schedule Report Administration <small>v1.0.0</small>", admin)
         self.assertIn("Saved profiles", admin)
         self.assertIn("Profile type: Monday Batch", admin)
         self.assertIn("Send this profile automatically during Monday Morning Batch", admin)
@@ -454,6 +460,23 @@ class DeploymentSafetyTests(unittest.TestCase):
         self.assertIn('id="profileContactNotice" style="display:none"', admin_form)
         self.assertIn("Run diagnostic", diagnostic)
         self.assertIn("Enter the ID", diagnostic)
+
+    def test_all_deployed_scripts_have_version_and_attribution_headers(self):
+        for path in (REPORT_PATH, ADMIN_PATH, DIAGNOSTIC_PATH):
+            source = path.read_text(encoding="utf-8")
+            self.assertIn('# Version: 1.0.0', source)
+            self.assertIn('# Released: 2026-08-15', source)
+            self.assertIn('# Written by: Brian Bullock with Codex assistance', source)
+            self.assertIn('# Email: bbbullock@mac.com', source)
+            self.assertIn('# GitHub: https://github.com/bbbullock/TouchPoint', source)
+            self.assertIn('APP_VERSION = "1.0.0"', source)
+
+    def test_standalone_report_relies_on_roles_directive(self):
+        allowed = self.render_script_with_empty_touchpoint(REPORT_PATH, {"Access"})
+        runtime_without_roles = self.render_script_with_empty_touchpoint(REPORT_PATH, set())
+        self.assertIn('id="vsrForm"', allowed)
+        self.assertIn('id="vsrForm"', runtime_without_roles)
+        self.assertNotIn("The Access role is required.", runtime_without_roles)
 
     def test_diagnostic_is_read_only(self):
         source = DIAGNOSTIC_PATH.read_text(encoding="utf-8")

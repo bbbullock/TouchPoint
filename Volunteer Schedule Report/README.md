@@ -1,4 +1,4 @@
-# TouchPoint Weekly Volunteer Schedule Report
+# TouchPoint Weekly Volunteer Schedule Report v1.0.0
 
 This extension produces a staff-friendly weekly report from TouchPoint
 Scheduler Involvements. A report may contain one Scheduler or several selected
@@ -22,6 +22,22 @@ email body, preview, and print view use the standard `"Helvetica Neue",
 Helvetica, Arial, sans-serif` stack with light/regular headings and selectively
 heavier labels and operational exceptions. There are no project-specific UI
 exceptions at this time.
+
+## Version history
+
+### 1.0.0 — 2026-08-15
+
+- Establishes the production baseline for multi-Scheduler weekly schedule
+  reporting, vacancy and substitute warnings, contact-detail controls,
+  report-only preview, and isolated printing.
+- Supports reusable standalone profiles and Admin-managed Monday Batch
+  profiles with manual and automated email delivery safeguards.
+- Uses `#Roles=Access` as the sole interactive authorization gate while
+  retaining explicit `Admin` checks for administration and batch processing.
+- Adds application version identification to the operational, Administration,
+  and diagnostic script headers and visible TouchPoint page headers.
+- Keeps application version `1.0.0` independent from the existing profile and
+  automated-send state schema versions.
 
 ## Files
 
@@ -120,12 +136,15 @@ behavior must still be checked against a weekend containing those statuses.
 4. Optionally add the report to **Special Content > Text > CustomReports**:
 
    ```xml
-   <Report name="VolunteerScheduleReport" type="PyScript" role="ManageGroups" />
+   <Report name="VolunteerScheduleReport" type="PyScript" role="Access" />
    ```
 
-   TouchPoint may cache Custom Report changes. The report script uses the base
-   `Access` directive and explicitly permits only users with `Admin` or
-   `ManageGroups`; the administration script enforces `Admin`.
+   TouchPoint may cache Custom Report changes. The report script uses its
+   first-line `#Roles=Access` directive as the single source of truth for
+   interactive authorization. The administration script and automated profile
+   runner still enforce `Admin` because those actions require greater access.
+   The Custom Reports `role` attribute controls menu visibility separately and
+   should match the intended report role.
 5. Open the report, select a known Scheduler, and compare Friday–Sunday results
    with the Scheduler screen. Repeat with multiple Schedulers and a custom
    date range.
@@ -150,12 +169,13 @@ prominent **Print Report** button that creates an isolated printable copy of
 the report, preventing TouchPoint's surrounding page layout from interfering
 with browser print preview. The button is omitted from the printed output.
 
-Users with `Admin` or `ManageGroups` can create, update, and delete shared
+Users with `Access` can run reports and create, update, and delete shared
 standalone profiles from this page. Profile names must be unique regardless of
 capitalization. Monday Batch profiles are read-only on the standalone page and
-can only be changed in Administration. Loading or previewing any preset does
-not enable automation, send email, or update duplicate-send state; the user
-must still click **Email current report** to send manually.
+can only be changed in Administration by an Administrator. Loading or
+previewing any preset does not enable automation, send email, or update
+duplicate-send state; the user must still click **Email current report** to
+send manually.
 
 ## Administration and saved profiles
 

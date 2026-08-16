@@ -1,12 +1,27 @@
 #Roles=Admin
+# -*- coding: utf-8 -*-
+# Application: Volunteer Schedule Report Administration
+# Version: 1.0.0
+# Released: 2026-08-15
+# Written by: Brian Bullock with Codex assistance
+# Email: bbbullock@mac.com
+# GitHub: https://github.com/bbbullock/TouchPoint
+#
+# Version history
+# 1.0.0 (2026-08-15)
+# - Configures global email delivery settings and failure recipients.
+# - Manages standalone and Monday Batch profiles using stable TouchPoint IDs.
+# - Requires affirmative authorization before distributing contact details.
+# - Restricts administration and automated profile management to Admin.
 
-"""Administrator UI for Volunteer Schedule Report settings and profiles."""
+"""Administrator UI v1.0.0 for Volunteer Schedule Report settings and profiles."""
 
 import cgi
 import datetime
 import json
 
 
+APP_VERSION = "1.0.0"
 SETTING_PREFIX = "VSR."
 PROFILES_CONTENT = "VolunteerScheduleReportProfiles"
 PROFILE_VERSION = 1
@@ -25,7 +40,7 @@ for setting_name in DEFAULTS:
         raise ValueError("TouchPoint setting key exceeds 50 characters: {0}".format(setting_name))
 
 
-model.Header = "Volunteer Schedule Report Administration"
+model.Header = "Volunteer Schedule Report Administration v{0}".format(APP_VERSION)
 model.Transactional = True
 
 
@@ -383,7 +398,7 @@ def render_page(document, edit_profile, message, settings_override=None):
 <style>
 .vsra{{max-width:1180px;margin:20px auto;color:#263746;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:400;line-height:1.42857143}}.vsra button,.vsra input,.vsra select{{font-family:inherit}}.vsra h2{{font-weight:300}}.vsra h3,.vsra h4{{font-weight:400}}.vsra label,.vsra th{{font-weight:600}}.vsra .help-block{{font-size:.9em}}.vsra-section{{border:1px solid #d8e0e7;border-radius:8px;padding:18px;margin-bottom:18px;background:#fff}}.vsra-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}.vsra-wide{{grid-column:1/-1}}.vsra-card{{display:flex;justify-content:space-between;gap:15px;border-top:1px solid #e2e8ed;padding:12px 0}}.vsra-selected{{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}}.vsra-pill{{background:#e8f1f8;border-radius:14px;padding:4px 9px}}.vsra-search{{position:relative}}.vsra-list{{position:absolute;z-index:5;width:100%;background:white;border:1px solid #ccd6df;box-shadow:0 3px 10px #999;max-height:220px;overflow:auto}}.vsra-result{{display:block;width:100%;border:0;border-bottom:1px solid #eee;background:#fff;text-align:left;padding:8px}}.vsra-privacy{{border-left:5px solid #b43535;background:#fff3f3;padding:12px}}@media(max-width:700px){{.vsra-grid{{grid-template-columns:1fr}}.vsra-card{{display:block}}}}
 </style>
-<div class="vsra"><h2>Volunteer Schedule Report Administration</h2>{0}
+<div class="vsra"><h2>Volunteer Schedule Report Administration <small>v{22}</small></h2>{0}
 <div class="vsra-section"><h3>Delivery settings</h3><p>Email remains off until explicitly enabled after live preview validation.</p>
 <form action="/PyScriptForm/VolunteerScheduleReportAdmin" method="post"><div class="vsra-grid">
 <div><label for="queuedSearch">Queued-by person</label><div class="vsra-search"><input class="form-control" type="search" id="queuedSearch" placeholder="Search by name, email, or People ID" autocomplete="off"><div id="queuedResults" aria-live="polite"></div></div><div class="vsra-selected" id="selectedQueued" aria-live="polite"></div><input type="hidden" name="QueuedByPeopleId" id="queuedById"></div>
@@ -435,7 +450,7 @@ document.getElementById('profileEditorForm').onsubmit=function(){{if(this.getAtt
         json_for_script(orgs), json_for_script(staff),
         json_for_script(failure_people), json_for_script(queued_people),
         "true" if edit_profile and not is_monday else "false",
-        contact_notice_style, monday_type_control,
+        contact_notice_style, monday_type_control, APP_VERSION,
     )
 
 

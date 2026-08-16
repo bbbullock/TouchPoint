@@ -1,7 +1,21 @@
 #Roles=Access
+# -*- coding: utf-8 -*-
+# Application: Volunteer Schedule Report
+# Version: 1.0.0
+# Released: 2026-08-15
+# Written by: Brian Bullock with Codex assistance
+# Email: bbbullock@mac.com
+# GitHub: https://github.com/bbbullock/TouchPoint
+#
+# Version history
+# 1.0.0 (2026-08-15)
+# - Reports one or more Scheduler Involvements with vacancies and substitutes.
+# - Supports reusable standalone and Monday Batch profiles, print, and email.
+# - Minimizes contact details by default and requires privacy confirmation.
+# - Uses #Roles=Access as the sole interactive authorization authority.
 
 """
-Weekly Volunteer Schedule Report for TouchPoint Scheduler Involvements.
+Weekly Volunteer Schedule Report v1.0.0 for TouchPoint Scheduler Involvements.
 
 Read-only with respect to people, Involvements, meetings, assignments, and
 commitments. The only writes are successful automated-send state in Text
@@ -17,6 +31,7 @@ import datetime
 import json
 
 
+APP_VERSION = "1.0.0"
 SETTING_PREFIX = "VSR."
 PROFILES_CONTENT = "VolunteerScheduleReportProfiles"
 STATE_CONTENT = "VolunteerScheduleReportState"
@@ -966,7 +981,7 @@ def render_runner(selected_org_ids, staff_ids, start_date, end_date, include_ser
     email_disabled = "" if email_is_enabled else " disabled"
     email_note = "Email is enabled. Select serving volunteers and/or a staff recipient." if email_is_enabled else "Email is disabled. Configure and save Delivery settings in VolunteerScheduleReportAdmin."
     parts = [REPORT_STYLE]
-    parts.append('<div class="vsr-shell"><div class="vsr-panel"><h2>Volunteer Schedule Report</h2>')
+    parts.append('<div class="vsr-shell"><div class="vsr-panel"><h2>Volunteer Schedule Report <small>v{0}</small></h2>'.format(APP_VERSION))
     if message:
         parts.append(message)
     parts.append("""
@@ -1148,15 +1163,12 @@ def emit_form(content):
 
 
 if "model" in globals():
-    model.Header = "Volunteer Schedule Report"
+    model.Header = "Volunteer Schedule Report v{0}".format(APP_VERSION)
     model.Transactional = True
     runtime_action = requested_action()
     is_admin = model.UserIsInRole("Admin")
-    is_manager = model.UserIsInRole("ManageGroups")
     if runtime_action == "run_profiles" and not is_admin:
         emit_form('<div class="alert alert-danger">Administrator access is required to run saved profiles.</div>')
-    elif runtime_action != "run_profiles" and not (is_admin or is_manager):
-        emit_form('<div class="alert alert-danger">Admin or Manage Groups access is required.</div>')
     elif runtime_action == "run_profiles":
         run_profiles()
     else:

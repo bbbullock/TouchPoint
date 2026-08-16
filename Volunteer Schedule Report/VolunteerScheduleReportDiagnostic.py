@@ -1,4 +1,17 @@
 #Roles=Admin
+# -*- coding: utf-8 -*-
+# Application: Volunteer Schedule Report Diagnostic
+# Version: 1.0.0
+# Released: 2026-08-15
+# Written by: Brian Bullock with Codex assistance
+# Email: bbbullock@mac.com
+# GitHub: https://github.com/bbbullock/TouchPoint
+#
+# Version history
+# 1.0.0 (2026-08-15)
+# - Provides a read-only Scheduler schema and sample-data diagnostic.
+# - Accepts an on-screen or hard-coded Scheduler Involvement ID.
+# - Performs no email delivery and no TouchPoint data writes.
 
 # Read-only schema and sample-data diagnostic for VolunteerScheduleReport.
 # This deliberately uses no triple-quoted strings because some TouchPoint
@@ -7,6 +20,8 @@
 import cgi
 import datetime
 
+
+APP_VERSION = "1.0.0"
 
 # Optional: replace 0 with a Scheduler Involvement ID. An ID entered in the
 # on-screen form takes precedence over this value.
@@ -97,7 +112,7 @@ def prompt_html(org_id):
 
 
 def main():
-    model.Header = "Volunteer Schedule Report Diagnostic"
+    model.Header = "Volunteer Schedule Report Diagnostic v{0}".format(APP_VERSION)
     org_id = requested_org_id()
     print(prompt_html(org_id))
     if org_id:

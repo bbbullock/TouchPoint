@@ -7,8 +7,8 @@ from types import SimpleNamespace
 import unittest
 
 
-PROJECT = Path(__file__).resolve().parents[1]
-SCRIPT = PROJECT / "VolunteerSignupDashboard.py"
+PROJECT = Path(__file__).resolve().parents[2]
+SCRIPT = PROJECT / "Installation Files" / "VolunteerSignupDashboard.py"
 
 
 def load_module():

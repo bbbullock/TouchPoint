@@ -1,7 +1,18 @@
 # Volunteer Signup Dashboard v1.0.0
 
-`VolunteerSignupDashboard.py` is one independently deployable TouchPoint
-Python script for reusable volunteer-signup dashboards.
+`Installation Files/VolunteerSignupDashboard.py` is one independently
+deployable TouchPoint Python script for reusable volunteer-signup dashboards.
+
+## Repository structure
+
+- `Installation Files` contains this README and the deployable TouchPoint
+  script required for installation.
+- `Development Resources/tests` contains maintainer regression tests. These
+  tests are not required in TouchPoint.
+
+The project intentionally has no root-level project files or Screenshots
+folder. No additional manifest or platform control file is required, and no
+current privacy-safe screenshots are needed for installation.
 
 The Registration Form is the source of truth for shifts. The script reads every
 option from the selected `RegQuestion.Options` JSON and then joins existing
@@ -81,7 +92,8 @@ again display volunteer email addresses.
 
 1. In TouchPoint, open **Admin > Advanced > Special Content > Python Scripts**.
 2. Create a script named exactly `VolunteerSignupDashboard`.
-3. Paste the complete contents of `VolunteerSignupDashboard.py` and save it.
+3. Paste the complete contents of
+   `Installation Files/VolunteerSignupDashboard.py` and save it.
 4. Open `/PyScript/VolunteerSignupDashboard` as an Administrator.
 5. Search for and choose an active Involvement, then select **Inspect
    Registration Form**.
@@ -241,8 +253,10 @@ script does not alter signup data.
 
 ## Local validation
 
+Run these commands from the `Volunteer Signup Dashboard` project root:
+
 ```bash
-python3 -m unittest discover -s tests -v
-python3 -m py_compile VolunteerSignupDashboard.py
+python3 -m unittest discover -s "Development Resources/tests" -v
+python3 -m py_compile "Installation Files/VolunteerSignupDashboard.py"
 git diff --check
 ```

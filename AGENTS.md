@@ -93,6 +93,36 @@ All new or materially updated user interfaces must also follow
 - Preserve readable print layouts and visually emphasize vacancies, unresolved
   substitute needs, failures, and other operational exceptions.
 
+## GitHub project structure and publication
+
+- Use two sister folders within each published project:
+  - `Installation Files` contains the project README, deployable source and
+    scripts, required installation or diagnostic assets, and a `Screenshots`
+    folder when visual examples are useful.
+  - `Development Resources` contains automated tests and other maintainer-only
+    resources that are useful for validating or extending the project but are
+    not required for installation.
+- Keep project files out of the project root except when a tool requires a
+  root-level control file such as `.gitignore`, a package manifest, or a
+  platform-specific configuration. Document any exception in the README.
+- Include only diagnostics that an installer may need to run. Never publish
+  completed diagnostic output, tenant exports, generated reports, temporary
+  files, caches, local configuration, credentials, secrets, or production
+  data.
+- Do not publish project-specific `AGENTS.md` or other internal agent-working
+  instructions. Repository-wide standards may remain at the repository root.
+- Place screenshots under `Installation Files/Screenshots`. Use only current,
+  purposeful examples and remove or replace all real names, email addresses,
+  phone numbers, People IDs, tenant identifiers, credentials, and other
+  private information before publication.
+- Keep regression tests in `Development Resources/tests` rather than removing
+  them merely to simplify installation. Installation documentation must use
+  paths that match the published folder structure.
+- Before staging or pushing, review the exact Git file list and scan new text,
+  images, PDFs, exports, and configuration files for sensitive or unnecessary
+  content. Removing a file in a later commit does not remove it from Git
+  history; treat history rewriting as a separate, explicitly approved action.
+
 ## Validation, documentation, and handoff
 
 - Add or update tests for boundaries, permissions, status rules, escaping,

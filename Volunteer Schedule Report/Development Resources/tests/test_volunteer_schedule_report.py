@@ -8,7 +8,7 @@ import types
 import unittest
 
 
-PROJECT = pathlib.Path(__file__).resolve().parents[1]
+PROJECT = pathlib.Path(__file__).resolve().parents[2] / "Installation Files"
 REPORT_PATH = PROJECT / "VolunteerScheduleReport.py"
 ADMIN_PATH = PROJECT / "VolunteerScheduleReportAdmin.py"
 DIAGNOSTIC_PATH = PROJECT / "VolunteerScheduleReportDiagnostic.py"

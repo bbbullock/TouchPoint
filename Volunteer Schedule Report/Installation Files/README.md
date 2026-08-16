@@ -10,19 +10,6 @@ The report is read-only. It never changes people, Involvements, meetings,
 assignments, commitments, or attendance. It writes only its own configuration
 and successful automated-send state in TouchPoint.
 
-## TouchPoint standards
-
-This project follows the parent `../AGENTS.md` TouchPoint Project Standards and
-`../TOUCHPOINT_UI_STANDARDS.md`. Its operational and Admin interfaces use the
-shared conventions for responsive panels, plain-language controls, safe
-defaults, progressive disclosure, stable-ID selectors, accessible labels and
-live regions, conditional privacy notices, report-only previews, isolated
-printing, and server-side validation. The operational app, Admin app, report,
-email body, preview, and print view use the standard `"Helvetica Neue",
-Helvetica, Arial, sans-serif` stack with light/regular headings and selectively
-heavier labels and operational exceptions. There are no project-specific UI
-exceptions at this time.
-
 ## Version history
 
 ### 1.0.0 — 2026-08-15
@@ -53,7 +40,22 @@ exceptions at this time.
   and Morning Batch profile runner.
 - `VolunteerScheduleReportAdmin.py` — Admin-only delivery settings and saved
   report profiles.
-- `tests/test_volunteer_schedule_report.py` — local behavior and safety tests.
+- `Screenshots/` — privacy-safe examples of the report and setup interface.
+- `../Development Resources/tests/test_volunteer_schedule_report.py` — local
+  behavior and safety tests retained separately from installation files.
+
+## Screenshots
+
+The examples below contain no volunteer names, email addresses, phone numbers,
+or People IDs.
+
+### Report setup
+
+![Volunteer Schedule Report setup](Screenshots/report-setup-example.jpg)
+
+### Visible vacancy warning
+
+![Open volunteer position highlighted in red](Screenshots/report-vacancy-example.png)
 
 ## Report behavior
 
@@ -107,25 +109,6 @@ exceptions at this time.
 The diagnostic performs no writes and sends no email. Remove or archive it
 after validation.
 
-### Confirmed tenant evidence
-
-The August 2, 2026 diagnostic for Scheduler Involvement `315` (Media Ministry
-Schedule) confirmed active Scheduler registration type `22`, 277 Time Slot
-meetings, and 419 meeting-team rows. The focused 46-day assignment export
-confirmed:
-
-- Team and Sub-Group labels and both staffing-target paths;
-- active and inactive roster links;
-- committed and scheduled/uncommitted assignments;
-- an active empty slot that must remain visible; and
-- deleted Time Slot meetings that must not appear in the report.
-
-The report query therefore filters canceled/deleted meeting structures,
-inactive or ended roster assignments, and inactive meeting-volunteer records.
-It retains an empty active slot and treats either commitment code `4` or an
-active `IsSub` flag as substitute coverage. Find Sub, Sub Found, and regret
-behavior must still be checked against a weekend containing those statuses.
-
 ## Phase 2 — preview installation
 
 1. Install `VolunteerScheduleReport.py` as a Python Script named exactly
@@ -142,7 +125,6 @@ behavior must still be checked against a weekend containing those statuses.
    TouchPoint may cache Custom Report changes. The report script uses its
    first-line `#Roles=Access` directive as the single source of truth for
    interactive authorization. The administration script and automated profile
-   runner still enforce `Admin` because those actions require greater access.
    The Custom Reports `role` attribute controls menu visibility separately and
    should match the intended report role.
 5. Open the report, select a known Scheduler, and compare Friday–Sunday results
@@ -286,11 +268,11 @@ that state.
 
 ## Local verification
 
-Run from this directory:
+Run from the `Volunteer Schedule Report` project directory:
 
 ```bash
-python3 -m unittest discover -s tests -v
-python3 -m py_compile VolunteerScheduleReport.py VolunteerScheduleReportAdmin.py VolunteerScheduleReportDiagnostic.py
+python3 -m unittest discover -s "Development Resources/tests" -v
+python3 -m py_compile "Installation Files/VolunteerScheduleReport.py" "Installation Files/VolunteerScheduleReportAdmin.py" "Installation Files/VolunteerScheduleReportDiagnostic.py"
 git diff --check
 ```
 

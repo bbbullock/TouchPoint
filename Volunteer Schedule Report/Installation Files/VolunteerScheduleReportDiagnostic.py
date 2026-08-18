@@ -1,13 +1,15 @@
 #Roles=Admin
 # -*- coding: utf-8 -*-
 # Application: Volunteer Schedule Report Diagnostic
-# Version: 1.0.0
-# Released: 2026-08-15
+# Version: 1.0.1
+# Released: 2026-08-17
 # Written by: Brian Bullock with Codex assistance
 # Email: bbbullock@mac.com
 # GitHub: https://github.com/bbbullock/TouchPoint
 #
 # Version history
+# 1.0.1 (2026-08-17)
+# - Aligns the diagnostic version with the current report release.
 # 1.0.0 (2026-08-15)
 # - Provides a read-only Scheduler schema and sample-data diagnostic.
 # - Accepts an on-screen or hard-coded Scheduler Involvement ID.
@@ -21,7 +23,7 @@ import cgi
 import datetime
 
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 
 # Optional: replace 0 with a Scheduler Involvement ID. An ID entered in the
 # on-screen form takes precedence over this value.

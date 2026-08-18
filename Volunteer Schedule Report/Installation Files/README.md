@@ -1,4 +1,4 @@
-# TouchPoint Weekly Volunteer Schedule Report v1.0.0
+# TouchPoint Weekly Volunteer Schedule Report v1.0.1
 
 This extension produces a staff-friendly weekly report from TouchPoint
 Scheduler Involvements. A report may contain one Scheduler or several selected
@@ -11,6 +11,14 @@ assignments, commitments, or attendance. It writes only its own configuration
 and successful automated-send state in TouchPoint.
 
 ## Version history
+
+### 1.0.1 — 2026-08-17
+
+- Renames report totals and volunteer badges to **Confirmed**, **Not
+  Confirmed**, and **Unfilled Sub Requests**.
+- Counts only truly unassigned staffing positions as **Vacancies**; positions
+  represented by unresolved Find Sub requests remain visible but are counted
+  separately under **Unfilled Sub Requests**.
 
 ### 1.0.0 — 2026-08-15
 
@@ -46,12 +54,16 @@ and successful automated-send state in TouchPoint.
 
 ## Screenshots
 
-The examples below contain no volunteer names, email addresses, phone numbers,
-or People IDs.
+The examples below use synthetic names and contain no real volunteer names,
+email addresses, phone numbers, or People IDs.
 
 ### Report setup
 
 ![Volunteer Schedule Report setup](Screenshots/report-setup-example.jpg)
+
+### Report totals and status labels
+
+![Volunteer Schedule Report with updated totals and synthetic volunteers](Screenshots/report-output-example.jpg)
 
 ### Visible vacancy warning
 
@@ -71,8 +83,9 @@ or People IDs.
   present.
 - Scheduler selection is restricted to active Involvements with TouchPoint
   Scheduler registration type `22` and generated Time Slot data.
-- Committed, Scheduled/Uncommitted, and Substitute volunteers count as filled.
-  `Find Sub` is shown as an unresolved warning and does not count as filled.
+- Confirmed, Not Confirmed, and Substitute volunteers count as filled.
+  TouchPoint's `Find Sub` status is shown as an unfilled substitute request; it
+  does not count as filled and does not create an additional vacancy.
   Regrets and replaced originals marked `Sub Found` do not appear as coverage.
 - Empty slots remain visible with filled/needed counts and open-position flags.
 - Email recipients are deduplicated TouchPoint People IDs. Serving recipients
@@ -209,14 +222,14 @@ complete report with only the selected contact columns. A profile that exposes
 either contact field cannot be enabled for volunteer delivery until an
 Administrator confirms this distribution explicitly.
 
-The report summary counts unique listed people. **Committed / Confirmed**
-includes committed volunteers and active substitutes; **Awaiting Confirmation**
-includes scheduled assignments without confirmation; **Vacancies** totals the
-unfilled positions across all Team/Sub-Group staffing targets; and **Substitute
-Warnings** counts people with unresolved Find Sub requests. All five metrics
-remain in one summary row, while each staffing gap also remains visible in its
-Team/Sub-Group section as a red alert badge. A compact definition key appears at
-the bottom of every preview, printout, and email.
+The report summary counts unique listed people. **Confirmed** includes
+confirmed volunteers and active substitutes; **Not Confirmed** includes
+scheduled assignments without confirmation; **Vacancies** totals positions
+with nobody assigned and excludes positions represented by unresolved Find Sub
+requests; and **Unfilled Sub Requests** counts those unresolved requests. All
+five metrics remain in one summary row, while each staffing gap also remains
+visible in its Team/Sub-Group section as a red alert badge. A compact definition
+key appears at the bottom of every preview, printout, and email.
 
 ## Controlled email activation
 

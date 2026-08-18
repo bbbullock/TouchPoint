@@ -1,13 +1,16 @@
 #Roles=Access
 # -*- coding: utf-8 -*-
 # Application: Volunteer Schedule Report
-# Version: 1.0.0
-# Released: 2026-08-15
+# Version: 1.0.1
+# Released: 2026-08-17
 # Written by: Brian Bullock with Codex assistance
 # Email: bbbullock@mac.com
 # GitHub: https://github.com/bbbullock/TouchPoint
 #
 # Version history
+# 1.0.1 (2026-08-17)
+# - Renames confirmation and substitute-request labels for plain-language use.
+# - Excludes unresolved Find Sub assignments from true vacancy totals.
 # 1.0.0 (2026-08-15)
 # - Reports one or more Scheduler Involvements with vacancies and substitutes.
 # - Supports reusable standalone and Monday Batch profiles, print, and email.
@@ -15,7 +18,7 @@
 # - Uses #Roles=Access as the sole interactive authorization authority.
 
 """
-Weekly Volunteer Schedule Report v1.0.0 for TouchPoint Scheduler Involvements.
+Weekly Volunteer Schedule Report v1.0.1 for TouchPoint Scheduler Involvements.
 
 Read-only with respect to people, Involvements, meetings, assignments, and
 commitments. The only writes are successful automated-send state in Text
@@ -31,7 +34,7 @@ import datetime
 import json
 
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 SETTING_PREFIX = "VSR."
 PROFILES_CONTENT = "VolunteerScheduleReportProfiles"
 STATE_CONTENT = "VolunteerScheduleReportState"
@@ -111,11 +114,11 @@ def commitment_details(raw):
         code = 99
     mapping = {
         0: ("Regrets", False, False, True),
-        1: ("Committed", True, True, True),
+        1: ("Confirmed", True, True, True),
         2: ("Find Sub", False, False, True),
         3: ("Sub Found", False, False, True),
         4: ("Substitute", True, True, True),
-        99: ("Scheduled", True, True, True),
+        99: ("Not Confirmed", True, True, True),
     }
     return mapping.get(code, ("Status {0}".format(code), False, False, True))
 
@@ -201,7 +204,7 @@ def build_slots(rows):
             "recipient": is_recipient,
         }
         existing = slot["volunteers"].get(people_id)
-        priority = {"Substitute": 4, "Committed": 3, "Scheduled": 2, "Find Sub": 1}
+        priority = {"Substitute": 4, "Confirmed": 3, "Not Confirmed": 2, "Find Sub": 1}
         if existing is None or priority.get(label, 0) >= priority.get(existing["status"], 0):
             slot["volunteers"][people_id] = volunteer
         if label == "Find Sub":
@@ -216,8 +219,13 @@ def build_slots(rows):
         volunteers.sort(key=lambda item: item["name"].lower())
         slot["volunteers"] = volunteers
         filled = len([item for item in volunteers if item["filled"]])
+        unfilled_sub_requests = len([
+            item for item in volunteers if item["status"] == "Find Sub"
+        ])
         slot["filled"] = filled
-        slot["open"] = None if slot["needed"] is None else max(slot["needed"] - filled, 0)
+        slot["unfilled_sub_requests"] = unfilled_sub_requests
+        slot["open"] = None if slot["needed"] is None else max(
+            slot["needed"] - filled - unfilled_sub_requests, 0)
         results.append(slot)
     return results
 
@@ -238,8 +246,8 @@ def recipient_people_ids(slots, include_serving, staff_ids):
 def report_summary(slots):
     volunteers = set()
     confirmed = set()
-    awaiting_confirmation = set()
-    substitute_warnings = set()
+    not_confirmed = set()
+    unfilled_sub_requests = set()
     vacancies = 0
     for slot in slots:
         if slot["open"] is not None:
@@ -247,14 +255,14 @@ def report_summary(slots):
         for volunteer in slot["volunteers"]:
             people_id = volunteer["people_id"]
             volunteers.add(people_id)
-            if volunteer["status"] in ("Committed", "Substitute"):
+            if volunteer["status"] in ("Confirmed", "Substitute"):
                 confirmed.add(people_id)
-            elif volunteer["status"] == "Scheduled":
-                awaiting_confirmation.add(people_id)
+            elif volunteer["status"] == "Not Confirmed":
+                not_confirmed.add(people_id)
             elif volunteer["status"] == "Find Sub":
-                substitute_warnings.add(people_id)
-    return (len(volunteers), len(confirmed), len(awaiting_confirmation),
-            vacancies, len(substitute_warnings))
+                unfilled_sub_requests.add(people_id)
+    return (len(volunteers), len(confirmed), len(not_confirmed),
+            vacancies, len(unfilled_sub_requests))
 
 
 def load_json_text(raw, default):
@@ -400,14 +408,14 @@ def render_report(slots, start_date, end_date, title, include_controls,
         '</div>',
         '<table class="vsr-summary" role="presentation"><tr>',
         '<td><strong>{0}</strong><span>Volunteers</span></td>'.format(volunteer_count),
-        '<td class="vsr-summary-confirmed"><strong>{0}</strong><span>Committed / Confirmed</span></td>'.format(
+        '<td class="vsr-summary-confirmed"><strong>{0}</strong><span>Confirmed</span></td>'.format(
             confirmed_count),
-        '<td class="vsr-summary-awaiting"><strong>{0}</strong><span>Awaiting Confirmation</span></td>'.format(
+        '<td class="vsr-summary-awaiting"><strong>{0}</strong><span>Not Confirmed</span></td>'.format(
             awaiting_count),
-        '<td class="vsr-summary-vacancy"><strong>{0}</strong><span>{1}</span></td>'.format(
-            vacancy_count, "Vacancy" if vacancy_count == 1 else "Vacancies"),
-        '<td class="vsr-summary-warning"><strong>{0}</strong><span>Substitute {1}</span></td>'.format(
-            warning_count, "Warning" if warning_count == 1 else "Warnings"),
+        '<td class="vsr-summary-vacancy"><strong>{0}</strong><span>Vacancies</span></td>'.format(
+            vacancy_count),
+        '<td class="vsr-summary-warning"><strong>{0}</strong><span>Unfilled Sub Requests</span></td>'.format(
+            warning_count),
         '</tr></table>',
     ]
     if include_controls:
@@ -504,10 +512,10 @@ function printVolunteerScheduleReport() {
 <div class="vsr-definitions">
   <strong class="vsr-definitions-title">Understanding the report totals</strong>
   <div><strong>Volunteers</strong><span>Unique people listed with a role for the selected weekend.</span></div>
-  <div><strong>Committed / Confirmed</strong><span>People who confirmed their assignment, including confirmed substitutes serving for someone else.</span></div>
-  <div><strong>Awaiting Confirmation</strong><span>People assigned to a role who have not yet confirmed their availability.</span></div>
-  <div><strong>Vacancies</strong><span>Total unfilled positions across all Team and Sub-Group staffing targets in the report.</span></div>
-  <div><strong>Substitute Warnings</strong><span>People with an unresolved Find Sub request where no replacement has filled the role.</span></div>
+  <div><strong>Confirmed</strong><span>People who confirmed their assignment, including confirmed substitutes serving for someone else.</span></div>
+  <div><strong>Not Confirmed</strong><span>People assigned to a role who have not yet confirmed their availability.</span></div>
+  <div><strong>Vacancies</strong><span>Unassigned positions across all Team and Sub-Group staffing targets. Positions with an unfilled substitute request are counted separately, not as vacancies.</span></div>
+  <div><strong>Unfilled Sub Requests</strong><span>People with an unresolved Find Sub request where no replacement has filled the role.</span></div>
 </div>
 ''')
     parts.append("</div>")
@@ -528,7 +536,7 @@ REPORT_STYLE = """
 .vsr-report-head{margin-bottom:12px}.vsr-summary{border-collapse:separate;border-spacing:0;margin:0 0 20px;table-layout:fixed;width:100%}.vsr-summary td{background:#eef3f6;border:1px solid #d8e0e7;border-right:0;overflow-wrap:anywhere;padding:12px;vertical-align:top;width:20%}.vsr-summary td:first-child{border-radius:7px 0 0 7px}.vsr-summary td:last-child{border-radius:0 7px 7px 0;border-right:1px solid #d8e0e7}.vsr-summary strong{display:block;font-size:26px;font-weight:600;margin-bottom:4px}.vsr-summary span{display:block;font-weight:600}.vsr-summary-confirmed{background:#dff2e4!important}.vsr-summary-awaiting{background:#fff0c7!important}.vsr-summary-vacancy,.vsr-summary-warning{background:#fde2e2!important}.vsr-actions{margin:10px 0 18px;text-align:right}.vsr-print-button{font-weight:600;min-width:160px;padding:10px 20px}
 .vsr-org{page-break-inside:avoid}.vsr-org h3{border-bottom:3px solid #2b6f98;padding-bottom:5px}.vsr-org h4{margin:18px 0 8px}
 .vsr-slot{border:1px solid #d7dee5;border-left:5px solid #37845a;margin:8px 0 14px;padding:10px;page-break-inside:avoid}.vsr-slot-open{border-left-color:#b43535}.vsr-slot-title{display:flex;justify-content:space-between;gap:12px;margin-bottom:7px}
-.vsr-slot table{border-collapse:collapse;width:100%;font-size:13px}.vsr-slot th,.vsr-slot td{border-top:1px solid #e1e6ea;padding:6px;text-align:left}.vsr-badge{display:inline-block;padding:2px 7px;border-radius:10px;background:#edf1f4}.vsr-status-committed,.vsr-status-substitute{background:#dff2e4;color:#245c36}.vsr-status-scheduled{background:#fff0c7;color:#735100}.vsr-status-find-sub{background:#fde2e2;color:#8b1f1f}.vsr-gap{background:#fde2e2;border:1px solid #d99b9b;border-radius:5px;color:#8b1f1f;display:inline-block;margin-top:9px;padding:6px 10px}.vsr-find-sub{margin-top:7px;color:#8b1f1f}
+.vsr-slot table{border-collapse:collapse;width:100%;font-size:13px}.vsr-slot th,.vsr-slot td{border-top:1px solid #e1e6ea;padding:6px;text-align:left}.vsr-badge{display:inline-block;padding:2px 7px;border-radius:10px;background:#edf1f4}.vsr-status-confirmed,.vsr-status-substitute{background:#dff2e4;color:#245c36}.vsr-status-not-confirmed{background:#fff0c7;color:#735100}.vsr-status-find-sub{background:#fde2e2;color:#8b1f1f}.vsr-gap{background:#fde2e2;border:1px solid #d99b9b;border-radius:5px;color:#8b1f1f;display:inline-block;margin-top:9px;padding:6px 10px}.vsr-find-sub{margin-top:7px;color:#8b1f1f}
 .vsr-definitions{background:#f7f9fb;border-top:3px solid #2b6f98;font-size:11px;margin-top:22px;padding:12px}.vsr-definitions-title{display:block;margin-bottom:4px}.vsr-definitions div{display:table;width:100%;padding:4px 0}.vsr-definitions div+div{border-top:1px solid #e1e6ea}.vsr-definitions div strong,.vsr-definitions div span{display:table-cell}.vsr-definitions div strong{width:185px}
 @media(max-width:700px){.vsr-grid{grid-template-columns:1fr}.vsr-report-head,.vsr-slot-title{display:block}.vsr-slot table{font-size:11px}.vsr-summary td{padding:8px 4px}.vsr-summary strong{font-size:22px}.vsr-summary span{font-size:11px}.vsr-definitions div strong,.vsr-definitions div span{display:block}.vsr-definitions div strong{width:auto}}
 @media print{.no-print,.vsr-shell{display:none!important}.vsr-report{margin:0;max-width:none}.vsr-slot{break-inside:avoid}.vsr-org{break-before:auto}}

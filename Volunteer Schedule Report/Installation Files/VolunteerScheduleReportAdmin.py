@@ -1,27 +1,29 @@
 #Roles=Admin
 # -*- coding: utf-8 -*-
 # Application: Volunteer Schedule Report Administration
-# Version: 1.0.0
-# Released: 2026-08-15
+# Version: 1.0.1
+# Released: 2026-08-17
 # Written by: Brian Bullock with Codex assistance
 # Email: bbbullock@mac.com
 # GitHub: https://github.com/bbbullock/TouchPoint
 #
 # Version history
+# 1.0.1 (2026-08-17)
+# - Aligns the project version with updated report terminology and totals.
 # 1.0.0 (2026-08-15)
 # - Configures global email delivery settings and failure recipients.
 # - Manages standalone and Monday Batch profiles using stable TouchPoint IDs.
 # - Requires affirmative authorization before distributing contact details.
 # - Restricts administration and automated profile management to Admin.
 
-"""Administrator UI v1.0.0 for Volunteer Schedule Report settings and profiles."""
+"""Administrator UI v1.0.1 for Volunteer Schedule Report settings and profiles."""
 
 import cgi
 import datetime
 import json
 
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 SETTING_PREFIX = "VSR."
 PROFILES_CONTENT = "VolunteerScheduleReportProfiles"
 PROFILE_VERSION = 1

@@ -88,14 +88,14 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
 
     def test_commitment_mapping(self):
         details = self.ns["commitment_details"]
-        self.assertEqual(details(1)[:3], ("Committed", True, True))
-        self.assertEqual(details(None)[:3], ("Scheduled", True, True))
+        self.assertEqual(details(1)[:3], ("Confirmed", True, True))
+        self.assertEqual(details(None)[:3], ("Not Confirmed", True, True))
         self.assertEqual(details(4)[:3], ("Substitute", True, True))
         self.assertEqual(details(2)[:3], ("Find Sub", False, False))
         self.assertEqual(details(3)[:3], ("Sub Found", False, False))
         self.assertEqual(details(0)[:3], ("Regrets", False, False))
 
-    def test_slots_count_coverage_and_substitute_warning(self):
+    def test_slots_separate_true_vacancies_from_unfilled_sub_requests(self):
         rows = [
             self.row(1, 1, "Alex Able"),
             self.row(2, 99, "Bailey Baker"),
@@ -107,10 +107,20 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
         slots = self.ns["build_slots"](rows)
         self.assertEqual(len(slots), 1)
         self.assertEqual(slots[0]["filled"], 3)
-        self.assertEqual(slots[0]["open"], 1)
+        self.assertEqual(slots[0]["open"], 0)
+        self.assertEqual(slots[0]["unfilled_sub_requests"], 1)
         self.assertEqual([v["status"] for v in slots[0]["volunteers"]],
-                         ["Committed", "Scheduled", "Substitute", "Find Sub"])
+                         ["Confirmed", "Not Confirmed", "Substitute", "Find Sub"])
         self.assertEqual(len(slots[0]["warnings"]), 1)
+
+    def test_find_sub_occupies_a_position_without_counting_as_filled(self):
+        slot = self.ns["build_slots"]([
+            self.row(1, 2, "Alex Needs Sub", needed=1)
+        ])[0]
+        self.assertEqual(slot["filled"], 0)
+        self.assertEqual(slot["unfilled_sub_requests"], 1)
+        self.assertEqual(slot["open"], 0)
+        self.assertEqual(self.ns["report_summary"]([slot]), (1, 0, 0, 0, 1))
 
     def test_report_summary_counts_unique_people_by_commitment_state(self):
         rows = [
@@ -121,7 +131,7 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
             self.row(5, 0, "Evan Regrets"),
         ]
         slots = self.ns["build_slots"](rows)
-        self.assertEqual(self.ns["report_summary"](slots), (4, 2, 1, 1, 1))
+        self.assertEqual(self.ns["report_summary"](slots), (4, 2, 1, 0, 1))
 
     def test_report_summary_deduplicates_people_across_roles(self):
         rows = [
@@ -143,7 +153,7 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
         rows = [self.row(1, 99, "Alex Able"), self.row(1, 1, "Alex Able")]
         slot = self.ns["build_slots"](rows)[0]
         self.assertEqual(len(slot["volunteers"]), 1)
-        self.assertEqual(slot["volunteers"][0]["status"], "Committed")
+        self.assertEqual(slot["volunteers"][0]["status"], "Confirmed")
 
     def test_inactive_meeting_assignment_is_not_counted(self):
         inactive = self.row(1, 1, "Alex Able", needed=1)
@@ -205,15 +215,18 @@ class VolunteerScheduleCoreTests(unittest.TestCase):
             self.ns["build_slots"](rows), datetime.date(2026, 8, 7),
             datetime.date(2026, 8, 9), "Weekend Schedule", False,
         )
-        self.assertIn("Committed / Confirmed", report)
-        self.assertIn("Awaiting Confirmation", report)
+        self.assertIn("Confirmed", report)
+        self.assertIn("Not Confirmed", report)
         self.assertIn("Vacancies", report)
-        self.assertIn("Substitute Warning", report)
+        self.assertIn("Unfilled Sub Requests", report)
+        self.assertNotIn("Committed / Confirmed", report)
+        self.assertNotIn("Awaiting Confirmation", report)
+        self.assertNotIn("Substitute Warnings", report)
         self.assertIn("Understanding the report totals", report)
         summary = report.split('<div class="vsr-org">')[0]
         self.assertEqual(summary.count('<td'), 5)
         self.assertNotIn("open positions", summary)
-        self.assertIn('<div class="vsr-gap"><strong>2 open positions</strong></div>',
+        self.assertIn('<div class="vsr-gap"><strong>1 open position</strong></div>',
                       report)
 
     def test_report_can_exclude_contact_columns(self):
@@ -330,7 +343,7 @@ class DeploymentSafetyTests(unittest.TestCase):
 
     def test_report_defaults_email_off_and_uses_state(self):
         source = REPORT_PATH.read_text(encoding="utf-8")
-        self.assertIn('APP_VERSION = "1.0.0"', source)
+        self.assertIn('APP_VERSION = "1.0.1"', source)
         self.assertIn('# Written by: Brian Bullock with Codex assistance', source)
         self.assertIn('bool_setting("EmailEnabled", False)', source)
         self.assertIn("VolunteerScheduleReportState", source)
@@ -419,7 +432,7 @@ class DeploymentSafetyTests(unittest.TestCase):
 
     def test_admin_requires_privacy_confirmation_and_stable_ids(self):
         source = ADMIN_PATH.read_text(encoding="utf-8")
-        self.assertIn('APP_VERSION = "1.0.0"', source)
+        self.assertIn('APP_VERSION = "1.0.1"', source)
         self.assertIn('# Written by: Brian Bullock with Codex assistance', source)
         self.assertIn('#Roles=Admin', source)
         self.assertIn('not acknowledged', source)
@@ -444,8 +457,8 @@ class DeploymentSafetyTests(unittest.TestCase):
         report = self.render_script_with_empty_touchpoint(REPORT_PATH)
         admin = self.render_script_with_empty_touchpoint(ADMIN_PATH)
         diagnostic = self.render_script_with_empty_touchpoint(DIAGNOSTIC_PATH)
-        self.assertIn("Volunteer Schedule Report <small>v1.0.0</small>", report)
-        self.assertIn("Volunteer Schedule Report Administration <small>v1.0.0</small>", admin)
+        self.assertIn("Volunteer Schedule Report <small>v1.0.1</small>", report)
+        self.assertIn("Volunteer Schedule Report Administration <small>v1.0.1</small>", admin)
         self.assertIn("Saved profiles", admin)
         self.assertIn("Profile type: Monday Batch", admin)
         self.assertIn("Send this profile automatically during Monday Morning Batch", admin)
@@ -464,12 +477,12 @@ class DeploymentSafetyTests(unittest.TestCase):
     def test_all_deployed_scripts_have_version_and_attribution_headers(self):
         for path in (REPORT_PATH, ADMIN_PATH, DIAGNOSTIC_PATH):
             source = path.read_text(encoding="utf-8")
-            self.assertIn('# Version: 1.0.0', source)
-            self.assertIn('# Released: 2026-08-15', source)
+            self.assertIn('# Version: 1.0.1', source)
+            self.assertIn('# Released: 2026-08-17', source)
             self.assertIn('# Written by: Brian Bullock with Codex assistance', source)
             self.assertIn('# Email: bbbullock@mac.com', source)
             self.assertIn('# GitHub: https://github.com/bbbullock/TouchPoint', source)
-            self.assertIn('APP_VERSION = "1.0.0"', source)
+            self.assertIn('APP_VERSION = "1.0.1"', source)
 
     def test_standalone_report_relies_on_roles_directive(self):
         allowed = self.render_script_with_empty_touchpoint(REPORT_PATH, {"Access"})

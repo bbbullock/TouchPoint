@@ -1,7 +1,17 @@
 #Roles=Admin
 
 # Background Check Evaluator Diagnostic
-# Version: 3.1.1
+# Version: 3.7.0
+# 2026-08-20 3.7.0 - Added PrimaryVolunteerMVR output-option readiness.
+# 2026-08-20 3.6.0 - Added privacy-safe background-check label, provider
+# classification, and legacy MVR/training date-correlation summaries.
+# 2026-08-19 3.5.0 - Removed NotApproved output-option readiness coverage.
+# 2026-08-19 3.4.0 - Added MissingInfo output-option readiness coverage.
+# 2026-08-19 3.3.0 - Added Denied output-option and Ineligible Volunteer
+# Extra Value readiness coverage for Volunteer Status Updater.
+# 2026-08-18 3.2.0 - Added privacy-safe Approved for Role definition,
+# stored-value, duplicate-record, and background-result validation for the
+# Volunteer Status Updater.
 # 2026-08-18 3.1.1 - Kept diagnostic version aligned with the evaluator's
 # default-off Process Builder reminder display switch.
 # 2026-08-18 3.1.0 - Kept diagnostic version aligned with Process Builder
@@ -42,7 +52,7 @@ It does not display volunteer names, send email, or modify any records.
 
 import cgi
 
-APP_VERSION = "3.1.1"
+APP_VERSION = "3.7.0"
 model.Header = "Background Check Evaluator - Diagnostic"
 
 
@@ -95,6 +105,64 @@ def run_section(title, sql, columns):
 
 
 sections = []
+
+
+def render_approved_role_definition_check():
+    field = "Approved for Role"
+    expected = [
+        "PrimaryVolunteer",
+        "PrimaryVolunteerMVR",
+        "SecondaryVolunteer",
+        "SecondaryVolunteerExpiredBackground",
+        "Denied",
+        "MissingInfo",
+    ]
+    try:
+        content = str(model.TextContent("StandardExtraValues2") or "")
+        field_index = content.find(field)
+        if field_index >= 0:
+            start = max(0, field_index - 1000)
+            definition_window = content[start:field_index + 6000]
+        else:
+            definition_window = ""
+        rows = [
+            ("StandardExtraValues2 exists", bool(content)),
+            ("Approved for Role definition found", field_index >= 0),
+            (
+                "Definition window contains Code type",
+                "Code" in definition_window,
+            ),
+        ]
+        for value in expected:
+            rows.append(
+                (
+                    "Option: {0}".format(value),
+                    value in definition_window,
+                )
+            )
+        parts = [
+            "<h2>Approved for Role Standard Extra Value Definition</h2>",
+            '<table class="table table-striped table-bordered" style="width:auto">',
+            '<thead><tr><th scope="col">Check</th>',
+            '<th scope="col">Result</th></tr></thead><tbody>',
+        ]
+        for label, passed in rows:
+            parts.append(
+                "<tr><td>{0}</td><td>{1}</td></tr>".format(
+                    html_escape(label), "Found" if passed else "Not found"
+                )
+            )
+        parts.append("</tbody></table>")
+        return "".join(parts)
+    except Exception as exc:
+        return (
+            "<h2>Approved for Role Standard Extra Value Definition</h2>"
+            '<div class="alert alert-danger"><strong>Definition check '
+            "failed:</strong> {0}</div>"
+        ).format(html_escape(exc))
+
+
+sections.append(render_approved_role_definition_check())
 
 sections.append(
     run_section(
@@ -306,6 +374,47 @@ sections.append(
 
 sections.append(
     run_section(
+        "Approved for Role Stored Values",
+        """
+        SELECT
+            LTRIM(RTRIM(Field)) AS Field,
+            Type,
+            StrValue,
+            COUNT(*) AS RecordCount,
+            COUNT(DISTINCT PeopleId) AS DistinctPeopleCount
+        FROM dbo.PeopleExtra
+        WHERE LTRIM(RTRIM(Field)) = 'Approved for Role'
+        GROUP BY LTRIM(RTRIM(Field)), Type, StrValue
+        ORDER BY Type, StrValue
+        """,
+        [
+            "Field", "Type", "StrValue", "RecordCount",
+            "DistinctPeopleCount",
+        ],
+    )
+)
+
+sections.append(
+    run_section(
+        "Approved for Role Duplicate Record Check",
+        """
+        SELECT
+            COUNT(*) AS PeopleWithDuplicateRows,
+            ISNULL(MAX(DuplicateCount), 0) AS MaximumRowsForOnePerson
+        FROM (
+            SELECT PeopleId, COUNT(*) AS DuplicateCount
+            FROM dbo.PeopleExtra
+            WHERE LTRIM(RTRIM(Field)) = 'Approved for Role'
+            GROUP BY PeopleId
+            HAVING COUNT(*) > 1
+        ) duplicates
+        """,
+        ["PeopleWithDuplicateRows", "MaximumRowsForOnePerson"],
+    )
+)
+
+sections.append(
+    run_section(
         "Target Volunteer Extra Value Summary",
         """
         SELECT
@@ -319,7 +428,8 @@ sections.append(
             'AppStatus:Application Approved',
             'AppStatus:Application on File',
             'College Student (no background check)',
-            'Individual Refuses Background Check'
+            'Individual Refuses Background Check',
+            'Ineligible Volunteer'
         )
         GROUP BY Field, Type, BitValue
         ORDER BY Field, Type, BitValue
@@ -342,13 +452,16 @@ sections.append(
                 MAX(CASE WHEN Field = 'College Student (no background check)'
                           AND BitValue = 1 THEN 1 ELSE 0 END) AS HasCollege,
                 MAX(CASE WHEN Field = 'Individual Refuses Background Check'
-                          AND BitValue = 1 THEN 1 ELSE 0 END) AS HasRefuses
+                          AND BitValue = 1 THEN 1 ELSE 0 END) AS HasRefuses,
+                MAX(CASE WHEN Field = 'Ineligible Volunteer'
+                          AND BitValue = 1 THEN 1 ELSE 0 END) AS HasIneligible
             FROM dbo.PeopleExtra
             WHERE Field IN (
                 'AppStatus:Application Approved',
                 'AppStatus:Application on File',
                 'College Student (no background check)',
-                'Individual Refuses Background Check'
+                'Individual Refuses Background Check',
+                'Ineligible Volunteer'
             )
             GROUP BY PeopleId
         )
@@ -359,7 +472,8 @@ sections.append(
             SUM(CASE WHEN HasApproved <> HasOnFile
                      THEN 1 ELSE 0 END) AS PartialApplications,
             SUM(HasCollege) AS CollegeFlags,
-            SUM(HasRefuses) AS RefusalFlags
+            SUM(HasRefuses) AS RefusalFlags,
+            SUM(HasIneligible) AS IneligibleFlags
         FROM Flags
         """,
         [
@@ -368,6 +482,7 @@ sections.append(
             "PartialApplications",
             "CollegeFlags",
             "RefusalFlags",
+            "IneligibleFlags",
         ],
     )
 )
@@ -599,6 +714,39 @@ sections.append(
 
 sections.append(
     run_section(
+        "BackgroundCheckLabels Columns",
+        """
+        SELECT
+            c.column_id AS ColumnOrder,
+            c.name AS ColumnName,
+            t.name AS DataType,
+            c.max_length AS MaxLength,
+            c.is_nullable AS IsNullable
+        FROM sys.columns c
+        JOIN sys.types t ON t.user_type_id = c.user_type_id
+        WHERE c.object_id = OBJECT_ID('lookup.BackgroundCheckLabels')
+        ORDER BY c.column_id
+        """,
+        ["ColumnOrder", "ColumnName", "DataType", "MaxLength", "IsNullable"],
+    )
+)
+
+sections.append(
+    run_section(
+        "Background Check Label Definitions",
+        """
+        SELECT
+            Id AS ReportLabelID,
+            Description AS ReportLabel
+        FROM lookup.BackgroundCheckLabels
+        ORDER BY Id
+        """,
+        ["ReportLabelID", "ReportLabel"],
+    )
+)
+
+sections.append(
+    run_section(
         "Background Check Type and Label Summary",
         """
         SELECT
@@ -638,6 +786,135 @@ sections.append(
     )
 )
 
+sections.append(
+    run_section(
+        "Background Check Classification Detail Summary",
+        """
+        SELECT
+            bc.ReportTypeId,
+            bc.ReportLabelID,
+            bcl.Description AS ReportLabel,
+            bc.ServiceCode,
+            bc.SubmitType,
+            bc.[Level],
+            bc.UserType,
+            bc.ChildServing,
+            bc.OverThirteen,
+            bc.ApprovalStatus,
+            COUNT(*) AS RecordCount,
+            COUNT(DISTINCT bc.PeopleID) AS DistinctPeopleCount,
+            MIN(bc.Updated) AS EarliestUpdated,
+            MAX(bc.Updated) AS LatestUpdated
+        FROM dbo.BackgroundChecks bc
+        LEFT JOIN lookup.BackgroundCheckLabels bcl
+          ON bcl.Id = bc.ReportLabelID
+        GROUP BY
+            bc.ReportTypeId,
+            bc.ReportLabelID,
+            bcl.Description,
+            bc.ServiceCode,
+            bc.SubmitType,
+            bc.[Level],
+            bc.UserType,
+            bc.ChildServing,
+            bc.OverThirteen,
+            bc.ApprovalStatus
+        ORDER BY
+            bc.ReportTypeId,
+            bc.ReportLabelID,
+            bc.ServiceCode,
+            bc.SubmitType,
+            bc.[Level],
+            bc.ApprovalStatus
+        """,
+        [
+            "ReportTypeId",
+            "ReportLabelID",
+            "ReportLabel",
+            "ServiceCode",
+            "SubmitType",
+            "Level",
+            "UserType",
+            "ChildServing",
+            "OverThirteen",
+            "ApprovalStatus",
+            "RecordCount",
+            "DistinctPeopleCount",
+            "EarliestUpdated",
+            "LatestUpdated",
+        ],
+    )
+)
+
+sections.append(
+    run_section(
+        "Background Check Legacy MVR and Training Date Correlation",
+        """
+        SELECT
+            bc.ReportTypeId,
+            bc.ReportLabelID,
+            bcl.Description AS ReportLabel,
+            bc.ServiceCode,
+            COUNT(*) AS RecordCount,
+            COUNT(DISTINCT bc.PeopleID) AS DistinctPeopleCount,
+            COUNT(DISTINCT CASE
+                WHEN v.MVRStatusId IS NOT NULL THEN bc.PeopleID
+            END) AS PeopleWithMVRStatus,
+            SUM(CASE
+                WHEN v.MVRProcessedDate IS NOT NULL
+                 AND ABS(DATEDIFF(day, v.MVRProcessedDate, bc.Updated)) = 0
+                THEN 1 ELSE 0
+            END) AS RowsOnMVRDate,
+            SUM(CASE
+                WHEN v.MVRProcessedDate IS NOT NULL
+                 AND ABS(DATEDIFF(day, v.MVRProcessedDate, bc.Updated)) <= 7
+                THEN 1 ELSE 0
+            END) AS RowsWithin7DaysOfMVRDate,
+            COUNT(DISTINCT CASE
+                WHEN v.TrainingStatusId IS NOT NULL THEN bc.PeopleID
+            END) AS PeopleWithTrainingStatus,
+            SUM(CASE
+                WHEN v.TrainingDate IS NOT NULL
+                 AND ABS(DATEDIFF(day, v.TrainingDate, bc.Updated)) = 0
+                THEN 1 ELSE 0
+            END) AS RowsOnTrainingDate,
+            SUM(CASE
+                WHEN v.TrainingDate IS NOT NULL
+                 AND ABS(DATEDIFF(day, v.TrainingDate, bc.Updated)) <= 7
+                THEN 1 ELSE 0
+            END) AS RowsWithin7DaysOfTrainingDate
+        FROM dbo.BackgroundChecks bc
+        LEFT JOIN lookup.BackgroundCheckLabels bcl
+          ON bcl.Id = bc.ReportLabelID
+        LEFT JOIN dbo.Volunteer v
+          ON v.PeopleId = bc.PeopleID
+        GROUP BY
+            bc.ReportTypeId,
+            bc.ReportLabelID,
+            bcl.Description,
+            bc.ServiceCode
+        ORDER BY
+            bc.ReportTypeId,
+            bc.ReportLabelID,
+            bc.ServiceCode
+        """,
+        [
+            "ReportTypeId",
+            "ReportLabelID",
+            "ReportLabel",
+            "ServiceCode",
+            "RecordCount",
+            "DistinctPeopleCount",
+            "PeopleWithMVRStatus",
+            "RowsOnMVRDate",
+            "RowsWithin7DaysOfMVRDate",
+            "PeopleWithTrainingStatus",
+            "RowsOnTrainingDate",
+            "RowsWithin7DaysOfTrainingDate",
+        ],
+    )
+)
+
 page = """
 <div class="container-fluid">
   <h1>Background Check Evaluator Diagnostic</h1>
@@ -647,6 +924,11 @@ page = """
     Copy the rendered tables or save the page as a PDF and return the results.
     The report intentionally omits names, People IDs, email addresses, comments,
     report IDs, and other person-level information.
+  </div>
+  <div class="alert alert-info">
+    <strong>Background-check classification:</strong>
+    The final detail and date-correlation tables help distinguish regular,
+    MVR, and training records without exposing any individual.
   </div>
   {content}
 </div>

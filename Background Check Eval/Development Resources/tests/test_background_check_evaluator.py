@@ -29,6 +29,8 @@ class EvaluatorMigrationTests(unittest.TestCase):
             "BackgroundCheckEvaluator.py",
             "BackgroundCheckEvaluatorAdmin.py",
             "BackgroundCheckEvalDiagnostic.py",
+            "VolunteerStatusUpdater.py",
+            "VolunteerStatusUpdaterAdmin.py",
         ):
             self.assertEqual(read_source(name).splitlines()[0], "#Roles=Admin")
 
@@ -38,7 +40,7 @@ class EvaluatorMigrationTests(unittest.TestCase):
             match = re.search(r'^APP_VERSION = "([^"]+)"$', source, re.M)
             self.assertIsNotNone(match)
             versions.append(match.group(1))
-        self.assertEqual(versions, ["3.1.3", "3.1.2", "3.1.1"])
+        self.assertEqual(versions, ["3.3.0", "3.3.0", "3.7.0"])
         self.assertIn("Version {app_version}", self.admin)
         self.assertIn(
             "Each TouchPoint script is independently deployable",
@@ -76,6 +78,29 @@ class EvaluatorMigrationTests(unittest.TestCase):
         self.assertIn("pe.Field = @CollegeEV", self.evaluator)
         self.assertIn("OR HasRefusesFlag = 1", self.evaluator)
         self.assertIn("OR HasCollegeFlag = 1", self.evaluator)
+
+    def test_only_configured_background_check_service_codes_qualify(self):
+        self.assertIn(
+            'setting("BackgroundCheckServiceCodes", "")',
+            self.evaluator,
+        )
+        self.assertIn("@BackgroundCheckServiceCodes", self.evaluator)
+        self.assertIn(
+            "UPPER(LTRIM(RTRIM(ISNULL(bc.ServiceCode, ''))))",
+            self.evaluator,
+        )
+        self.assertIn(
+            '"BackgroundCheckServiceCodes": ""', self.admin
+        )
+        self.assertIn(
+            "Qualifying background-check service codes", self.admin
+        )
+
+    def test_evaluator_fails_safe_without_regular_service_codes(self):
+        with self.assertRaisesRegex(
+            ValueError, "background-check service codes"
+        ):
+            execute_evaluator(email_enabled=False, service_codes="")
 
     def test_admin_declares_ev_only_evaluation(self):
         self.assertIn("uses only these People Extra Values", self.admin)
@@ -134,6 +159,28 @@ class EvaluatorMigrationTests(unittest.TestCase):
         self.assertIn("Process Builder Database Objects", self.diagnostic)
         self.assertIn("Process Builder Object Columns", self.diagnostic)
         self.assertIn("Process Builder Foreign Keys", self.diagnostic)
+
+    def test_diagnostic_has_privacy_safe_background_check_classification(self):
+        self.assertIn("BackgroundCheckLabels Columns", self.diagnostic)
+        self.assertIn("Background Check Label Definitions", self.diagnostic)
+        self.assertIn(
+            "Background Check Classification Detail Summary", self.diagnostic
+        )
+        self.assertIn("bc.SubmitType", self.diagnostic)
+        self.assertIn("bc.[Level]", self.diagnostic)
+        self.assertIn("bc.UserType", self.diagnostic)
+        self.assertIn("bc.ChildServing", self.diagnostic)
+        self.assertIn("bc.OverThirteen", self.diagnostic)
+
+        correlation = self.diagnostic.split(
+            '"Background Check Legacy MVR and Training Date Correlation"', 1
+        )[1].split("page =", 1)[0]
+        self.assertIn("v.MVRProcessedDate", correlation)
+        self.assertIn("v.TrainingDate", correlation)
+        self.assertIn("COUNT(DISTINCT", correlation)
+        self.assertNotIn("p.Name", correlation)
+        self.assertNotIn("EmailAddress", correlation)
+        self.assertNotIn("SELECT bc.PeopleID", correlation)
 
     def test_comparison_state_is_json_with_legacy_read_compatibility(self):
         self.assertIn('"version": 3', self.evaluator)
@@ -353,7 +400,7 @@ def exception_row(organization_id, people_id):
     )
 
 
-def execute_evaluator(email_enabled):
+def execute_evaluator(email_enabled, service_codes="BG100,BG200"):
     fake_cgi = types.ModuleType("cgi")
     fake_cgi.escape = html.escape
     previous_cgi = sys.modules.get("cgi")
@@ -369,6 +416,8 @@ def execute_evaluator(email_enabled):
         def Setting(self, key, default):
             if key == "BCE.EmailEnabled":
                 return "true" if email_enabled else "false"
+            if key == "BCE.BackgroundCheckServiceCodes":
+                return service_codes
             return default
 
         def TextContent(self, name):

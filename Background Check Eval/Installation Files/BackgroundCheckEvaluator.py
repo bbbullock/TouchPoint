@@ -1,7 +1,11 @@
 #Roles=Admin
 
 # Background Check Evaluator
-# Version: 3.1.3
+# Version: 3.3.0
+# 2026-08-20 3.3.0 - Renamed regular-background-check configuration and
+# operator wording to background check.
+# 2026-08-20 3.2.0 - Restricted qualifying background checks to an
+# Admin-configured positive allowlist of regular provider ServiceCode values.
 # 2026-08-18 3.1.3 - Replaced tenant-specific installation defaults with
 # safe empty values for public distribution; saved BCE settings still prevail.
 # 2026-08-18 3.1.2 - Clarified Involvement coverage reporting by renaming
@@ -55,7 +59,7 @@ except ImportError:
 
 
 SETTING_PREFIX = "BCE."
-APP_VERSION = "3.1.3"
+APP_VERSION = "3.3.0"
 STATE_CONTENT_NAME = "BackgroundCheckEvaluatorState"
 EVALUATE_THROUGH_DATE_EV_FIELD = "EvaluateBackgroundCheckThroughDate"
 
@@ -74,6 +78,24 @@ def int_setting(name, default):
 def bool_setting(name, default):
     value = setting(name, "true" if default else "false").strip().lower()
     return value in ("true", "1", "yes", "y", "on")
+
+
+def normalize_service_codes(raw):
+    codes = []
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+    for part in str(raw or "").split(","):
+        code = part.strip().upper()
+        if not code:
+            continue
+        if len(code) > 50 or any(char not in allowed for char in code):
+            raise ValueError(
+                "Background-check service codes contain an invalid "
+                "value. Use comma-separated letters, numbers, periods, "
+                "underscores, or hyphens."
+            )
+        if code not in codes:
+            codes.append(code)
+    return ",".join(codes)
 
 
 EMAIL_ENABLED = bool_setting("EmailEnabled", False)
@@ -107,6 +129,9 @@ BACKGROUND_CHECK_VALID_MONTHS = int_setting(
 )
 MINIMUM_BACKGROUND_CHECK_AGE = int_setting("MinimumBackgroundCheckAge", 18)
 TRAINING_REPORT_TYPE_ID = int_setting("TrainingReportTypeId", 0)
+BACKGROUND_CHECK_SERVICE_CODES = normalize_service_codes(
+    setting("BackgroundCheckServiceCodes", "")
+)
 
 REPORT_SUBJECT = "Nightly Volunteer Background Check Evaluation"
 FAILURE_SUBJECT = "TouchPoint Background Check Evaluator - Action Required"
@@ -430,6 +455,10 @@ DECLARE @TargetDate date = CAST(@RequiredThroughDate AS date);
         WHERE bc.PeopleId = om.PeopleId
           AND bc.ApprovalStatus = 'Approved'
           AND ISNULL(bc.ReportTypeId, 0) <> @TrainingReportTypeId
+          AND CHARINDEX(
+              ',' + UPPER(LTRIM(RTRIM(ISNULL(bc.ServiceCode, '')))) + ',',
+              ',' + @BackgroundCheckServiceCodes + ','
+          ) > 0
           AND bc.Updated < DATEADD(day, 1, @TargetDate)
     ) bg
     OUTER APPLY (
@@ -574,6 +603,9 @@ def evaluation_parameters(organization_id, target_date, basis):
         "CollegeEV": COLLEGE_NO_BACKGROUND_CHECK_EV_FIELD,
         "RefusesEV": REFUSES_BACKGROUND_CHECK_EV_FIELD,
         "TrainingReportTypeId": TRAINING_REPORT_TYPE_ID,
+        "BackgroundCheckServiceCodes": (
+            BACKGROUND_CHECK_SERVICE_CODES
+        ),
         "VolunteerAppProcessName": VOLUNTEER_APP_PROCESS_NAME,
         "BackgroundCheckProcessName": BACKGROUND_CHECK_PROCESS_NAME,
         "ShowProcessReminderSteps": SHOW_PROCESS_REMINDER_STEPS,
@@ -979,6 +1011,11 @@ def fatal_failure_body(exc):
 
 def main():
     try:
+        if not BACKGROUND_CHECK_SERVICE_CODES:
+            raise ValueError(
+                "Qualifying background-check service codes are not "
+                "configured in BackgroundCheckEvaluatorAdmin."
+            )
         previous_exists, previous_state = load_comparison_state()
         coverage, rows, errors = evaluate_involvements()
         next_state = build_updated_state(

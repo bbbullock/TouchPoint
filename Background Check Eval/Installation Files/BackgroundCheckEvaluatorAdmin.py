@@ -1,7 +1,11 @@
 #Roles=Admin
 
 # Background Check Evaluator Admin
-# Version: 3.1.2
+# Version: 3.3.0
+# 2026-08-20 3.3.0 - Renamed qualifying regular-background-check wording and
+# configuration to qualifying background checks.
+# 2026-08-20 3.2.0 - Added required configuration for the positive allowlist
+# of provider ServiceCode values that qualify as background checks.
 # 2026-08-18 3.1.2 - Replaced tenant-specific installation defaults with
 # safe empty values for public distribution; saved BCE settings still prevail.
 # 2026-08-18 3.1.1 - Added a default-off church-wide switch for displaying
@@ -55,7 +59,7 @@ import json
 # TouchPoint's Setting.Id column is nvarchar(50). Keep the namespace short.
 # Do not lengthen individual setting names without checking the combined size.
 SETTING_PREFIX = "BCE."
-APP_VERSION = "3.1.2"
+APP_VERSION = "3.3.0"
 STATE_CONTENT_NAME = "BackgroundCheckEvaluatorState"
 EVALUATE_THROUGH_DATE_EV_FIELD = "EvaluateBackgroundCheckThroughDate"
 EVALUATOR_SCRIPT_NAME = "BackgroundCheckEvaluator"
@@ -74,6 +78,7 @@ DEFAULTS = {
     "BackgroundCheckValidMonths": "33",
     "MinimumBackgroundCheckAge": "18",
     "TrainingReportTypeId": "0",
+    "BackgroundCheckServiceCodes": "",
 }
 
 for setting_name in DEFAULTS:
@@ -316,6 +321,29 @@ def require_int(name, minimum, maximum):
     return str(value)
 
 
+def require_service_codes(name):
+    codes = []
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+    for part in posted(name).split(","):
+        code = part.strip().upper()
+        if not code:
+            continue
+        if len(code) > 50 or any(char not in allowed for char in code):
+            raise ValueError(
+                "Qualifying background-check service codes must use "
+                "comma-separated letters, numbers, periods, underscores, "
+                "or hyphens."
+            )
+        if code not in codes:
+            codes.append(code)
+    if not codes:
+        raise ValueError(
+            "At least one qualifying background-check service code "
+            "is required."
+        )
+    return ",".join(codes)
+
+
 def require_people_ids(name):
     raw = posted(name)
     ids = []
@@ -399,6 +427,9 @@ def save_configuration():
     )
     values["TrainingReportTypeId"] = require_int(
         "TrainingReportTypeId", 0, 100
+    )
+    values["BackgroundCheckServiceCodes"] = require_service_codes(
+        "BackgroundCheckServiceCodes"
     )
 
     hierarchy_count = q.QuerySqlInt(
@@ -753,6 +784,17 @@ html = """
         <input name="TrainingReportTypeId" type="number" min="0" max="100"
           value="{training_type}">
         <div class="bce-help">This type is excluded from background checks.</div>
+      </div>
+      <div class="bce-field">
+        <label>Qualifying background-check service codes</label>
+        <input name="BackgroundCheckServiceCodes"
+          value="{regular_service_codes}"
+          placeholder="Example: 12345,67890">
+        <div class="bce-help">
+          Enter the comma-separated provider ServiceCode values confirmed by
+          the diagnostic as background checks. MVR, training, and unknown
+          codes do not satisfy the requirement.
+        </div>
       </div>
     </div>
   </div>
@@ -1120,6 +1162,9 @@ initializeBackgroundCheckEvaluator();
     valid_months=escape(current("BackgroundCheckValidMonths")),
     minimum_age=escape(current("MinimumBackgroundCheckAge")),
     training_type=escape(current("TrainingReportTypeId")),
+    regular_service_codes=escape(
+        current("BackgroundCheckServiceCodes")
+    ),
     queued_by=escape(current("QueuedByPeopleId")),
     from_name=escape(current("FromName")),
     from_address=escape(current("FromAddress")),
